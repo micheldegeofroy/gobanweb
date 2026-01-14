@@ -37,3 +37,30 @@ export type Game = typeof games.$inferSelect;
 export type NewGame = typeof games.$inferInsert;
 export type Action = typeof actions.$inferSelect;
 export type NewAction = typeof actions.$inferInsert;
+
+// Crazy Go games table - 4-player variant
+export const crazyGames = pgTable('crazy_games', {
+  id: text('id').primaryKey(), // UUID
+  publicKey: text('public_key').notNull(), // JWK format public key for verification
+  boardSize: integer('board_size').notNull().default(19), // 9, 13, or 19
+  boardState: jsonb('board_state').notNull().$type<(number | null)[][]>(), // 2D array: null=empty, 0=black, 1=white, 2=brown, 3=grey
+  // Track stones in pots for all 4 colors
+  blackPotCount: integer('black_pot_count').notNull().default(91),
+  whitePotCount: integer('white_pot_count').notNull().default(90),
+  brownPotCount: integer('brown_pot_count').notNull().default(90),
+  greyPotCount: integer('grey_pot_count').notNull().default(90),
+  blackReturned: integer('black_returned').notNull().default(0),
+  whiteReturned: integer('white_returned').notNull().default(0),
+  brownReturned: integer('brown_returned').notNull().default(0),
+  greyReturned: integer('grey_returned').notNull().default(0),
+  lastMoveX: integer('last_move_x'),
+  lastMoveY: integer('last_move_y'),
+  koPointX: integer('ko_point_x'),
+  koPointY: integer('ko_point_y'),
+  connectedUsers: integer('connected_users').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export type CrazyGame = typeof crazyGames.$inferSelect;
+export type NewCrazyGame = typeof crazyGames.$inferInsert;
