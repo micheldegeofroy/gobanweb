@@ -79,13 +79,13 @@ export default function CrazyGoHome() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-950 dark:to-zinc-900">
+    <div className="min-h-screen bg-black">
       <div className="container mx-auto px-4 py-16">
         <header className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-zinc-800 dark:text-zinc-100 mb-4">
+          <h1 className="text-5xl font-bold text-zinc-100 mb-4">
             Crazy Go
           </h1>
-          <p className="text-xl text-zinc-600 dark:text-zinc-400">
+          <p className="text-xl text-zinc-400">
             4-Player Chaos Mode
           </p>
         </header>
@@ -167,11 +167,11 @@ export default function CrazyGoHome() {
 
         {/* Info Section */}
         <div className="max-w-md mx-auto mt-16 text-center">
-          <h3 className="text-xl font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
+          <h3 className="text-xl font-semibold text-zinc-300 mb-4">
             How Crazy Go Works
           </h3>
-          <div className="bg-white/50 dark:bg-zinc-800/50 rounded-xl p-6">
-            <ul className="text-sm text-zinc-600 dark:text-zinc-400 space-y-2 text-left">
+          <div className="bg-zinc-900 rounded-xl p-6">
+            <ul className="text-sm text-zinc-400 space-y-2 text-left">
               <li>• <strong>4 Players</strong> - Black, White, White-Cross, and Black-Cross</li>
               <li>• <strong>Same Rules</strong> - Capture by surrounding, no suicide</li>
               <li>• <strong>Free-for-all</strong> - Any stone can capture any other color</li>
@@ -184,7 +184,7 @@ export default function CrazyGoHome() {
         <div className="max-w-md mx-auto mt-8 text-center">
           <button
             onClick={() => router.push('/')}
-            className="text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+            className="text-zinc-500 hover:text-zinc-300 transition-colors"
           >
             Back to Normal Go
           </button>

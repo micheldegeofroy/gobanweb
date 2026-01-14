@@ -303,7 +303,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
 
   if (showKeyModal && !privateKey) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-950 dark:to-zinc-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-md w-full">
           <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">Access Denied</h2>
           <input
@@ -329,15 +329,15 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-950 dark:to-zinc-900 flex items-center justify-center">
-        <div className="text-xl text-zinc-600 dark:text-zinc-400">Loading board...</div>
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-xl text-zinc-400">Loading board...</div>
       </div>
     );
   }
 
   if (error && !game) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-950 dark:to-zinc-900 flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-md text-center">
           <div className="text-red-500 text-xl mb-4">{error}</div>
           <button onClick={() => router.push('/crazy')} className="px-6 py-3 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-800 rounded-lg font-semibold hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors">
@@ -351,7 +351,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
   if (!game) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-950 dark:to-zinc-900">
+    <div className="min-h-screen bg-black">
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 sm:mb-6">
