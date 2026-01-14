@@ -358,7 +358,6 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           <button onClick={() => router.push('/crazy')} className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors text-sm">
             Home
           </button>
-          <span className="text-purple-600 font-bold">Crazy Go</span>
           <button onClick={handleShare} className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors text-sm">
             {copied ? 'Copied!' : 'Share'}
           </button>
