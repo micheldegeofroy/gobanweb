@@ -39,7 +39,7 @@ const getMaxBoardSize = () => {
 const stoneColors = {
   0: { light: '#4a4a4a', dark: '#1a1a1a', outline: '#000000' }, // Black
   1: { light: '#ffffff', dark: '#d0d0d0', outline: '#b0b0b0' }, // White
-  2: { light: '#d97706', dark: '#92400e', outline: '#78350f' }, // Brown/Amber
+  2: { light: '#ffffff', dark: '#d0d0d0', outline: '#b0b0b0' }, // White with cross
   3: { light: '#ef4444', dark: '#991b1b', outline: '#7f1d1d' }, // Red
 };
 
@@ -116,6 +116,23 @@ export default function CrazyGoBoard({
     ctx.strokeStyle = colors.outline;
     ctx.lineWidth = 0.5;
     ctx.stroke();
+
+    // Draw black cross on color 2 (white with cross) - extends to edge
+    if (color === 2) {
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = radius * 0.15;
+      ctx.lineCap = 'butt';
+      // Vertical line - full height
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - radius);
+      ctx.lineTo(cx, cy + radius);
+      ctx.stroke();
+      // Horizontal line - full width
+      ctx.beginPath();
+      ctx.moveTo(cx - radius, cy);
+      ctx.lineTo(cx + radius, cy);
+      ctx.stroke();
+    }
 
     if (isGhost) ctx.globalAlpha = 1;
   }, []);

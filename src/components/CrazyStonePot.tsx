@@ -24,10 +24,11 @@ const colorStyles = {
     text: 'text-zinc-600',
   },
   2: {
-    bg: 'bg-amber-700 hover:bg-amber-600 active:bg-amber-500',
-    stone: 'bg-gradient-to-br from-amber-500 to-amber-800',
+    bg: 'bg-zinc-100 hover:bg-white active:bg-zinc-50 border-2 border-zinc-300',
+    stone: 'bg-gradient-to-br from-white to-zinc-200 border border-zinc-300',
     border: '',
-    text: 'text-amber-100',
+    text: 'text-zinc-600',
+    hasCross: true,
   },
   3: {
     bg: 'bg-red-600 hover:bg-red-500 active:bg-red-400',
@@ -69,12 +70,19 @@ export default function CrazyStonePot({
     >
       <div
         className={`
-          rounded-full mb-1
+          rounded-full mb-1 relative overflow-hidden
           ${small ? 'w-6 h-6' : 'w-10 h-10'}
           ${styles.stone}
           shadow-md
         `}
-      />
+      >
+        {color === 2 && (
+          <>
+            <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[2px] bg-zinc-900" />
+            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-zinc-900" />
+          </>
+        )}
+      </div>
       <span className={`font-bold ${small ? 'text-xs' : 'text-sm'} ${styles.text}`}>
         {returned > 0 ? `${count}/${returned}` : count}
       </span>
