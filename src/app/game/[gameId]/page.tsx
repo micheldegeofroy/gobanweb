@@ -594,8 +594,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
               </div>
             </div>
           </div>
-        ) : (
-          /* Tablet/Mobile: Pots on top and bottom */
+        ) : deviceType === 'tablet' ? (
+          /* Tablet: Pots on top and bottom */
           <div className="relative flex flex-col items-center">
             <div className="relative">
               {/* Top pot (White) */}
@@ -607,7 +607,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   isHoldingStone={heldStone !== null}
                   heldStoneColor={heldStone?.color ?? null}
                   rotated={true}
-                  small={deviceType === 'mobile'}
                   onClick={() => handlePotClick(1)}
                 />
               </div>
@@ -628,10 +627,43 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   returned={game.blackReturned}
                   isHoldingStone={heldStone !== null}
                   heldStoneColor={heldStone?.color ?? null}
-                  small={deviceType === 'mobile'}
                   onClick={() => handlePotClick(0)}
                 />
               </div>
+            </div>
+          </div>
+        ) : (
+          /* Mobile: Both pots at bottom, side by side */
+          <div className="flex flex-col items-center">
+            <GoBoard
+              board={isReplaying && replayBoard ? replayBoard : game.boardState}
+              size={game.boardSize}
+              heldStone={isReplaying ? null : heldStone}
+              lastMove={isReplaying ? replayLastMove : (game.lastMoveX !== null && game.lastMoveY !== null
+                ? { x: game.lastMoveX, y: game.lastMoveY }
+                : null)}
+              onBoardClick={isReplaying ? () => {} : handleBoardClick}
+            />
+            {/* Both pots at bottom */}
+            <div className="flex gap-4 mt-4">
+              <StonePot
+                color={1}
+                count={game.whitePotCount}
+                returned={game.whiteReturned}
+                isHoldingStone={heldStone !== null}
+                heldStoneColor={heldStone?.color ?? null}
+                small={true}
+                onClick={() => handlePotClick(1)}
+              />
+              <StonePot
+                color={0}
+                count={game.blackPotCount}
+                returned={game.blackReturned}
+                isHoldingStone={heldStone !== null}
+                heldStoneColor={heldStone?.color ?? null}
+                small={true}
+                onClick={() => handlePotClick(0)}
+              />
             </div>
           </div>
         )}
