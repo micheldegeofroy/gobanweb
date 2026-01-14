@@ -91,13 +91,10 @@ export default function Home() {
       <div className="container mx-auto px-4 py-16">
         <header className="text-center mb-16">
           <h1 className="text-5xl font-bold text-zinc-800 dark:text-zinc-100 mb-4">
-            Free Online Go Board
+            Online Go Board
           </h1>
           <p className="text-xl text-zinc-600 dark:text-zinc-400">
-            Play Go instantly on iPad, tablet, or phone - no login needed
-          </p>
-          <p className="text-lg text-zinc-500 dark:text-zinc-500 mt-2">
-            Share a link and play with friends locally or remotely
+            Play Go instantly
           </p>
           {gameCount !== null && (
             <p className="text-lg text-amber-600 font-semibold mt-2">

@@ -208,9 +208,9 @@ export default function TutorialPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800">
-      <div className="container mx-auto px-4 py-6 max-w-lg">
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-lg">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <button
             onClick={() => router.push('/')}
             className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors text-sm"
@@ -223,14 +223,6 @@ export default function TutorialPage() {
           >
             Play Now
           </button>
-        </div>
-
-        {/* Progress bar */}
-        <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mb-6">
-          <div
-            className="bg-amber-600 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${((currentStep + 1) / tutorialSteps.length) * 100}%` }}
-          />
         </div>
 
         {/* Board */}
@@ -279,23 +271,6 @@ export default function TutorialPage() {
               Next
             </button>
           )}
-        </div>
-
-        {/* Step dots */}
-        <div className="flex justify-center gap-2 mt-6">
-          {tutorialSteps.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToStep(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === currentStep
-                  ? 'bg-amber-600 w-4'
-                  : index < currentStep
-                  ? 'bg-amber-400'
-                  : 'bg-zinc-300 dark:bg-zinc-600'
-              }`}
-            />
-          ))}
         </div>
       </div>
     </div>

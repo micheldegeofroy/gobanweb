@@ -291,10 +291,26 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Submit key from modal
+  // Submit key from modal - accepts URL or raw key
   const handleKeySubmit = async () => {
     if (!keyInput.trim() || !gameId) return;
-    const key = keyInput.trim();
+    const input = keyInput.trim();
+
+    let key = input;
+
+    // Try to extract key from URL if input looks like a URL
+    try {
+      if (input.includes('://') || input.includes('key=')) {
+        const url = new URL(input.includes('://') ? input : `https://dummy.com?${input}`);
+        const urlKey = url.searchParams.get('key');
+        if (urlKey) {
+          key = urlKey;
+        }
+      }
+    } catch {
+      // Not a valid URL, use input as-is
+    }
+
     localStorage.setItem(`game_${gameId}_privateKey`, key);
     setPrivateKey(key);
     await fetchGame(gameId);
@@ -462,18 +478,15 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-md w-full">
-          <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-4">
-            Enter Key to Access Board
+          <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">
+            Access Denied
           </h2>
-          <p className="text-zinc-600 dark:text-zinc-400 mb-6">
-            This board is protected. Enter the private key to view and play.
-          </p>
 
           <input
             type="text"
             value={keyInput}
             onChange={(e) => setKeyInput(e.target.value)}
-            placeholder="Paste private key here"
+            placeholder="Paste board URL here"
             className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4"
             onKeyDown={(e) => e.key === 'Enter' && handleKeySubmit()}
           />
@@ -483,13 +496,13 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
               onClick={handleKeySubmit}
               className="flex-1 py-3 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-colors"
             >
-              Access Board
+              Join Board
             </button>
             <button
               onClick={() => router.push('/')}
               className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-lg font-semibold hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors"
             >
-              Go Home
+              Home
             </button>
           </div>
         </div>
@@ -514,7 +527,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             onClick={() => router.push('/')}
             className="px-6 py-3 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-800 rounded-lg font-semibold hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors"
           >
-            Go Home
+            Home
           </button>
         </div>
       </div>
