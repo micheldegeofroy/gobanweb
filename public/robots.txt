@@ -1,0 +1,8 @@
+# Robots.txt for Goban Web
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /game/
+
+# Sitemap
+Sitemap: https://gobanweb.vercel.app/sitemap.xml

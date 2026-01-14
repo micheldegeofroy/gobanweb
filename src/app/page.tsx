@@ -91,14 +91,17 @@ export default function Home() {
       <div className="container mx-auto px-4 py-16">
         <header className="text-center mb-16">
           <h1 className="text-5xl font-bold text-zinc-800 dark:text-zinc-100 mb-4">
-            Goban Web
+            Free Online Go Board
           </h1>
           <p className="text-xl text-zinc-600 dark:text-zinc-400">
-            A shared virtual Go board - play with anyone, anywhere
+            Play Go instantly on iPad, tablet, or phone - no login needed
+          </p>
+          <p className="text-lg text-zinc-500 dark:text-zinc-500 mt-2">
+            Share a link and play with friends locally or remotely
           </p>
           {gameCount !== null && (
             <p className="text-lg text-amber-600 font-semibold mt-2">
-              {gameCount} go games played!
+              {gameCount} games played!
             </p>
           )}
         </header>
@@ -192,33 +195,37 @@ export default function Home() {
         </div>
 
         {/* Features */}
-        <div className="max-w-md mx-auto mt-12 text-center">
-          <h3 className="text-xl font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
-            Game Features
-          </h3>
+        <section className="max-w-md mx-auto mt-12 text-center">
+          <h2 className="text-xl font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
+            Why Play Go on Goban Web?
+          </h2>
           <div className="bg-white/50 dark:bg-zinc-800/50 rounded-xl p-6">
             <ul className="text-sm text-zinc-600 dark:text-zinc-400 space-y-2 text-left">
-            <li>• <strong>No accounts needed</strong> - cryptographic keys provide access</li>
-            <li>• <strong>Multiple players</strong> - anyone with the key can join</li>
-            <li>• <strong>Real board simulation</strong> - pick up, place & move stones freely</li>
-            <li>• <strong>Cross-platform</strong> - works on desktop and mobile</li>
-            <li>• <strong>Real-time sync</strong> - all players see changes instantly</li>
+            <li>• <strong>No login or signup</strong> - start playing in seconds</li>
+            <li>• <strong>Works on any device</strong> - iPad, Android tablet, iPhone, phone</li>
+            <li>• <strong>Play locally or remotely</strong> - share a link with friends</li>
+            <li>• <strong>Real board feel</strong> - pick up, place & move stones freely</li>
+            <li>• <strong>Real-time sync</strong> - all players see moves instantly</li>
+            <li>• <strong>Free forever</strong> - no ads, no premium features</li>
             </ul>
           </div>
-        </div>
+        </section>
 
         {/* Tutorial Link */}
-        <div className="max-w-md mx-auto mt-12 text-center">
-          <h3 className="text-xl font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
-            New to Go?
-          </h3>
+        <section className="max-w-md mx-auto mt-12 text-center">
+          <h2 className="text-xl font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
+            New to Go? Learn in 5 Minutes
+          </h2>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+            Go (also called Baduk or Weiqi) is one of the oldest board games. Our interactive tutorial teaches you the basics.
+          </p>
           <button
             onClick={() => router.push('/tutorial')}
             className="px-6 py-3 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-800 rounded-lg font-semibold hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors"
           >
-            Learn the Rules
+            Start Free Tutorial
           </button>
-        </div>
+        </section>
       </div>
     </div>
   );
