@@ -486,7 +486,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             type="text"
             value={keyInput}
             onChange={(e) => setKeyInput(e.target.value)}
-            placeholder="Paste board URL here"
+            placeholder="Paste Board URL to Access"
             className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4"
             onKeyDown={(e) => e.key === 'Enter' && handleKeySubmit()}
           />
