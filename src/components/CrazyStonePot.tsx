@@ -63,8 +63,8 @@ export default function CrazyStonePot({
         transition-all duration-200
         ${small ? 'w-14 h-14' : 'w-20 h-20'}
         ${styles.bg}
-        ${canPickUp ? 'cursor-grab ring-4 ring-purple-400/50 hover:ring-purple-400 active:ring-purple-500' : ''}
-        ${canDropHere ? 'cursor-pointer ring-4 ring-purple-600 active:ring-purple-700' : ''}
+        ${canPickUp ? 'cursor-grab ring-4 ring-amber-400/50 hover:ring-amber-400 active:ring-amber-500' : ''}
+        ${canDropHere ? 'cursor-pointer ring-4 ring-amber-600 active:ring-amber-700' : ''}
         ${!canPickUp && !canDropHere ? 'cursor-default opacity-60' : ''}
         shadow-lg hover:shadow-xl
       `}

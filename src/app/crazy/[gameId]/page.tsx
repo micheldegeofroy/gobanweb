@@ -311,11 +311,11 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
             value={keyInput}
             onChange={(e) => setKeyInput(e.target.value)}
             placeholder="Paste Board URL to Access"
-            className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
+            className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4"
             onKeyDown={(e) => e.key === 'Enter' && handleKeySubmit()}
           />
           <div className="flex gap-3">
-            <button onClick={handleKeySubmit} className="flex-1 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+            <button onClick={handleKeySubmit} className="flex-1 py-3 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-colors">
               Join Board
             </button>
             <button onClick={() => router.push('/crazy')} className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-lg font-semibold hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors">
@@ -355,10 +355,10 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <button onClick={() => router.push('/crazy')} className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors text-sm">
+          <button onClick={() => router.push('/crazy')} className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors text-sm">
             Home
           </button>
-          <button onClick={handleShare} className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors text-sm">
+          <button onClick={handleShare} className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors text-sm">
             {copied ? 'Copied!' : 'Share'}
           </button>
         </div>

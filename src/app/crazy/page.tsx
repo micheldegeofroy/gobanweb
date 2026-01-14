@@ -115,7 +115,7 @@ export default function CrazyGoHome() {
                   onClick={() => setBoardSize(size as 9 | 13 | 19)}
                   className={`flex-1 py-3 rounded-lg font-medium transition-all ${
                     boardSize === size
-                      ? 'bg-purple-600 text-white shadow-md'
+                      ? 'bg-amber-600 text-white shadow-md'
                       : 'bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-600'
                   }`}
                 >
@@ -142,7 +142,7 @@ export default function CrazyGoHome() {
               value={boardUrl}
               onChange={(e) => setBoardUrl(e.target.value)}
               placeholder="Paste Board URL"
-              className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4 text-center"
+              className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4 text-center"
               onKeyDown={(e) => e.key === 'Enter' && joinGame()}
             />
 
@@ -150,7 +150,7 @@ export default function CrazyGoHome() {
             <button
               onClick={joinGame}
               disabled={isJoining}
-              className="w-full py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isJoining ? 'Joining...' : 'Join Board'}
             </button>
