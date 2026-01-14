@@ -52,20 +52,11 @@ export const metadata: Metadata = {
     siteName: 'Goban Web',
     title: 'Goban Web - Free Online Go Board | Play Go Anywhere',
     description: 'Play Go instantly on any device. No login required. Share a link and play with friends locally or remotely. Free virtual Go board.',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Goban Web - Online Go Board',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Goban Web - Free Online Go Board',
     description: 'Play Go instantly on any device. No login, no signup. Just share a link and play!',
-    images: ['/og-image.png'],
   },
   alternates: {
     canonical: 'https://gobanweb.vercel.app',
