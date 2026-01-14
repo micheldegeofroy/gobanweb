@@ -93,9 +93,6 @@ export default function Home() {
           <h1 className="text-5xl font-bold text-zinc-800 dark:text-zinc-100 mb-4">
             Online Go Board
           </h1>
-          <p className="text-xl text-zinc-600 dark:text-zinc-400">
-            Play Go instantly
-          </p>
           {gameCount !== null && (
             <p className="text-lg text-amber-600 font-semibold mt-2">
               {gameCount} games played!
