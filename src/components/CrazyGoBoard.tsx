@@ -40,7 +40,7 @@ const stoneColors = {
   0: { light: '#4a4a4a', dark: '#1a1a1a', outline: '#000000' }, // Black
   1: { light: '#ffffff', dark: '#d0d0d0', outline: '#b0b0b0' }, // White
   2: { light: '#d97706', dark: '#92400e', outline: '#78350f' }, // Brown/Amber
-  3: { light: '#9ca3af', dark: '#4b5563', outline: '#374151' }, // Grey
+  3: { light: '#ef4444', dark: '#991b1b', outline: '#7f1d1d' }, // Red
 };
 
 export default function CrazyGoBoard({

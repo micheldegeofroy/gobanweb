@@ -30,10 +30,10 @@ const colorStyles = {
     text: 'text-amber-100',
   },
   3: {
-    bg: 'bg-zinc-500 hover:bg-zinc-400 active:bg-zinc-300',
-    stone: 'bg-gradient-to-br from-zinc-400 to-zinc-600',
+    bg: 'bg-red-600 hover:bg-red-500 active:bg-red-400',
+    stone: 'bg-gradient-to-br from-red-400 to-red-700',
     border: '',
-    text: 'text-zinc-100',
+    text: 'text-red-100',
   },
 };
 

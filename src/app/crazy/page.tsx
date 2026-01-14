@@ -96,7 +96,7 @@ export default function CrazyGoHome() {
             <div className="w-10 h-10 rounded-full bg-zinc-900 shadow-lg" title="Black" />
             <div className="w-10 h-10 rounded-full bg-zinc-100 border-2 border-zinc-300 shadow-lg" title="White" />
             <div className="w-10 h-10 rounded-full bg-amber-700 shadow-lg" title="Brown" />
-            <div className="w-10 h-10 rounded-full bg-zinc-500 shadow-lg" title="Grey" />
+            <div className="w-10 h-10 rounded-full bg-red-600 shadow-lg" title="Red" />
           </div>
 
           {/* Single Card for Create and Join */}
@@ -166,7 +166,7 @@ export default function CrazyGoHome() {
           </h3>
           <div className="bg-white/50 dark:bg-zinc-800/50 rounded-xl p-6">
             <ul className="text-sm text-zinc-600 dark:text-zinc-400 space-y-2 text-left">
-              <li>• <strong>4 Players</strong> - Black, White, Brown, and Grey</li>
+              <li>• <strong>4 Players</strong> - Black, White, Brown, and Red</li>
               <li>• <strong>Same Rules</strong> - Capture by surrounding, no suicide</li>
               <li>• <strong>Free-for-all</strong> - Any stone can capture any other color</li>
               <li>• <strong>Shared Board</strong> - Everyone plays on the same board</li>
