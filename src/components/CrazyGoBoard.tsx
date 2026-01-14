@@ -40,7 +40,7 @@ const stoneColors = {
   0: { light: '#4a4a4a', dark: '#1a1a1a', outline: '#000000' }, // Black
   1: { light: '#ffffff', dark: '#d0d0d0', outline: '#b0b0b0' }, // White
   2: { light: '#ffffff', dark: '#d0d0d0', outline: '#b0b0b0' }, // White with cross
-  3: { light: '#ef4444', dark: '#991b1b', outline: '#7f1d1d' }, // Red
+  3: { light: '#4a4a4a', dark: '#1a1a1a', outline: '#000000' }, // Black with white cross
 };
 
 export default function CrazyGoBoard({
@@ -117,9 +117,9 @@ export default function CrazyGoBoard({
     ctx.lineWidth = 0.5;
     ctx.stroke();
 
-    // Draw black cross on color 2 (white with cross) - extends to edge
-    if (color === 2) {
-      ctx.strokeStyle = '#1a1a1a';
+    // Draw cross on color 2 (white with black cross) and color 3 (black with white cross)
+    if (color === 2 || color === 3) {
+      ctx.strokeStyle = color === 2 ? '#1a1a1a' : '#ffffff';
       ctx.lineWidth = radius * 0.15;
       ctx.lineCap = 'butt';
       // Vertical line - full height

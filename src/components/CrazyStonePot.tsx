@@ -31,10 +31,12 @@ const colorStyles = {
     hasCross: true,
   },
   3: {
-    bg: 'bg-red-600 hover:bg-red-500 active:bg-red-400',
-    stone: 'bg-gradient-to-br from-red-400 to-red-700',
+    bg: 'bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600',
+    stone: 'bg-gradient-to-br from-zinc-600 to-zinc-900',
     border: '',
-    text: 'text-red-100',
+    text: 'text-zinc-300',
+    hasCross: true,
+    crossColor: 'white',
   },
 };
 
@@ -80,6 +82,12 @@ export default function CrazyStonePot({
           <>
             <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[2px] bg-zinc-900" />
             <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-zinc-900" />
+          </>
+        )}
+        {color === 3 && (
+          <>
+            <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[2px] bg-white" />
+            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-white" />
           </>
         )}
       </div>
