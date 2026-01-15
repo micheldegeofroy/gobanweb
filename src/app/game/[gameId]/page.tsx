@@ -284,12 +284,42 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   };
 
   // Share - copy URL with key to clipboard
-  const handleShare = () => {
+  const handleShare = async () => {
     if (!privateKey || !gameId) return;
     const shareUrl = `${window.location.origin}/game/${gameId}?key=${encodeURIComponent(privateKey)}`;
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        // Fallback for iOS Safari
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Fallback for iOS Safari
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   // Submit key from modal - accepts URL or raw key
@@ -604,8 +634,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   );
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 ${isTablet ? 'flex flex-col' : ''}`}>
-      <div className={`container mx-auto px-2 sm:px-4 ${isTablet ? 'flex-1 flex flex-col justify-center py-4' : 'pt-12 sm:pt-16 pb-4 sm:pb-8'}`}>
+    <div className={`bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 ${isTablet ? 'h-dvh flex flex-col' : 'min-h-screen'}`}>
+      <div className={`container mx-auto px-2 sm:px-4 ${isTablet ? 'flex-1 flex flex-col justify-center pb-[72px]' : 'pt-12 sm:pt-16 pb-4 sm:pb-8'}`}>
         {/* Buttons are now rendered inside GoBoard perimeter */}
 
         {/* Error message */}

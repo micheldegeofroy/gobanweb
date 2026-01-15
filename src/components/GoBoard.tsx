@@ -34,11 +34,11 @@ const getMaxBoardSize = () => {
     // Desktop - max 600px
     return 600;
   } else if (width >= 768) {
-    // Tablet
+    // Tablet - maximize board size for easier play
     if (isLandscape) {
-      return Math.min(height - 200, width - 300, 700);
+      return Math.min(height - 80, width - 100, 1100);
     }
-    return Math.min(width - 40, height - 280, 700);
+    return Math.min(width - 16, height - 140, 1100);
   } else {
     // Phone
     if (isLandscape) {

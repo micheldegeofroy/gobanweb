@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useDeviceType } from '@/hooks/useDeviceType';
 
 export default function Home() {
   const router = useRouter();
+  const deviceType = useDeviceType();
+  const isTablet = deviceType === 'tablet';
   const [boardSize, setBoardSize] = useState<9 | 13 | 19>(13);
   const [isCreating, setIsCreating] = useState(false);
   const [boardUrl, setBoardUrl] = useState('');
@@ -87,11 +90,11 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800">
-      <div className="container mx-auto px-4 py-16">
+    <div className={`min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 ${isTablet ? 'flex flex-col' : ''}`}>
+      <div className={`container mx-auto px-4 ${isTablet ? 'flex-1 flex flex-col justify-center py-8' : 'py-16'}`}>
         <header className="text-center mb-16">
           <h1 className="text-5xl font-bold text-zinc-800 dark:text-zinc-100 mb-4">
-            Online Go Board
+            Online Go
           </h1>
           {gameCount !== null && (
             <p className="text-lg font-semibold mt-2 text-white">

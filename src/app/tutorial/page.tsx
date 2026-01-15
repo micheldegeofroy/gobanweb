@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import TutorialBoard from '@/components/TutorialBoard';
+import { useDeviceType } from '@/hooks/useDeviceType';
 
 type Stone = 0 | 1 | null;
 type Board = Stone[][];
@@ -187,6 +188,8 @@ const tutorialSteps: TutorialStep[] = [
 
 export default function TutorialPage() {
   const router = useRouter();
+  const deviceType = useDeviceType();
+  const isTablet = deviceType === 'tablet';
   const [currentStep, setCurrentStep] = useState(0);
   const step = tutorialSteps[currentStep];
 
@@ -197,8 +200,8 @@ export default function TutorialPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800">
-      <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4 max-w-sm">
+    <div className={`bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 ${isTablet ? 'h-dvh flex flex-col' : 'min-h-screen'}`}>
+      <div className={`container mx-auto px-2 sm:px-4 max-w-sm ${isTablet ? 'flex-1 flex flex-col justify-center pb-[72px]' : 'py-2 sm:py-4'}`}>
         {/* Board */}
         <div className="mb-4">
           <TutorialBoard
