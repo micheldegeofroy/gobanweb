@@ -61,7 +61,6 @@ export default function GoBoard({
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState(600);
   const [hoverPos, setHoverPos] = useState<Position | null>(null);
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
   // Calculate cell size based on canvas size
   const padding = canvasSize * 0.10;
@@ -257,15 +256,14 @@ export default function GoBoard({
       ctx.stroke();
     }
 
-    // Highlight clickable stones when holding a stone (to show valid drop targets)
+    // When holding a stone, show snapped ghost stone at target position
     if (heldStone && hoverPos && board[hoverPos.y][hoverPos.x] === null) {
-      // Show ghost stone where cursor is
       const cx = padding + hoverPos.x * cellSize;
       const cy = padding + hoverPos.y * cellSize;
       drawStone(ctx, cx, cy, heldStone.color, cellSize * 0.45, true);
     }
 
-    // Highlight stone under cursor when not holding anything
+    // Highlight stone under cursor when not holding anything (for pickup)
     if (!heldStone && hoverPos && board[hoverPos.y][hoverPos.x] !== null) {
       const cx = padding + hoverPos.x * cellSize;
       const cy = padding + hoverPos.y * cellSize;
@@ -275,20 +273,7 @@ export default function GoBoard({
       ctx.arc(cx, cy, cellSize * 0.5, 0, Math.PI * 2);
       ctx.stroke();
     }
-
-    // Draw held stone following cursor
-    if (heldStone && mousePos) {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const cx = mousePos.x * scaleX;
-        const cy = mousePos.y * scaleY;
-        drawStone(ctx, cx, cy, heldStone.color, cellSize * 0.45);
-      }
-    }
-  }, [board, size, canvasSize, heldStone, lastMove, hoverPos, mousePos, cellSize, padding, drawStone, getStarPoints]);
+  }, [board, size, canvasSize, heldStone, lastMove, hoverPos, cellSize, padding, drawStone, getStarPoints]);
 
   // Handle resize
   useEffect(() => {
@@ -322,16 +307,6 @@ export default function GoBoard({
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const pos = canvasToBoard(e.clientX, e.clientY);
       setHoverPos(pos);
-
-      // Track mouse position for held stone
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const rect = canvas.getBoundingClientRect();
-        setMousePos({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-        });
-      }
     },
     [canvasToBoard]
   );
@@ -354,51 +329,33 @@ export default function GoBoard({
       const touch = e.touches[0];
       const pos = canvasToBoard(touch.clientX, touch.clientY);
       setHoverPos(pos);
-
-      // Track touch position for held stone
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const rect = canvas.getBoundingClientRect();
-        setMousePos({
-          x: touch.clientX - rect.left,
-          y: touch.clientY - rect.top,
-        });
-      }
     },
     [canvasToBoard]
   );
 
-  // Handle touch move for dragging
+  // Handle touch move for dragging - snap to nearest intersection
   const handleTouchMove = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       e.preventDefault();
       const touch = e.touches[0];
       const pos = canvasToBoard(touch.clientX, touch.clientY);
       setHoverPos(pos);
-
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const rect = canvas.getBoundingClientRect();
-        setMousePos({
-          x: touch.clientX - rect.left,
-          y: touch.clientY - rect.top,
-        });
-      }
     },
     [canvasToBoard]
   );
 
-  // Handle touch end - execute click
+  // Handle touch end - execute click at last touch position
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       e.preventDefault();
-      if (hoverPos) {
-        onBoardClick(hoverPos);
+      const touch = e.changedTouches[0];
+      const pos = canvasToBoard(touch.clientX, touch.clientY);
+      if (pos) {
+        onBoardClick(pos);
       }
       setHoverPos(null);
-      setMousePos(null);
     },
-    [hoverPos, onBoardClick]
+    [canvasToBoard, onBoardClick]
   );
 
   return (
@@ -410,17 +367,11 @@ export default function GoBoard({
           height={canvasSize}
           onClick={handleClick}
           onMouseMove={handleMouseMove}
-          onMouseLeave={() => {
-            setHoverPos(null);
-            setMousePos(null);
-          }}
+          onMouseLeave={() => setHoverPos(null)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          onTouchCancel={() => {
-            setHoverPos(null);
-            setMousePos(null);
-          }}
+          onTouchCancel={() => setHoverPos(null)}
           className={`w-full h-auto rounded-lg shadow-lg ${
             heldStone ? 'cursor-none' : 'cursor-pointer'
           }`}

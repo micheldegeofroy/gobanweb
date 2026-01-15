@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, games } from '@/lib/db';
 import { generateKeyPair, generateGameId } from '@/lib/crypto/keys';
 import { createEmptyBoard } from '@/lib/game/logic';
+import { lt } from 'drizzle-orm';
 
 // Standard stone counts based on board size
 function getStoneCount(boardSize: number): { black: number; white: number } {
@@ -13,6 +14,11 @@ function getStoneCount(boardSize: number): { black: number; white: number } {
 // POST /api/games - Create a new shared board
 export async function POST(request: NextRequest) {
   try {
+    // Clean up games older than 1 year (runs in background, don't await)
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    db.delete(games).where(lt(games.createdAt, oneYearAgo)).catch(() => {});
+
     const body = await request.json();
     const boardSize = body.boardSize || 19;
 

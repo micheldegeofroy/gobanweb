@@ -43,6 +43,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   const deviceType = useDeviceType();
   const isDesktop = deviceType === 'desktop';
   const isTablet = deviceType === 'tablet';
+  const isMobile = deviceType === 'mobile';
 
   // Get gameId from params and key from query string
   const [gameId, setGameId] = useState<string | null>(null);
@@ -235,43 +236,65 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           const testBoard = game.boardState.map(row => [...row]);
           testBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
           if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color)) {
-            // Suicide move - silently ignore
             return;
           }
-          // Check Ko rule - cannot move to Ko point
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
-            // Ko violation - silently ignore
             return;
           }
+          // Optimistic update - show move immediately with captures
+          const newBoard = game.boardState.map(row => [...row]);
+          newBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
+          newBoard[pos.y][pos.x] = heldStone.color;
+          const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured } = detectAndRemoveCaptures(newBoard);
+          setGame(prev => prev ? {
+            ...prev,
+            boardState: boardAfterCaptures,
+            lastMoveX: pos.x,
+            lastMoveY: pos.y,
+            blackReturned: prev.blackReturned + blackCaptured,
+            whiteReturned: prev.whiteReturned + whiteCaptured,
+          } : null);
+          setHeldStone(null);
+          // Send to server in background
           performAction('move', {
             fromX: heldStone.fromBoard.x,
             fromY: heldStone.fromBoard.y,
             toX: pos.x,
             toY: pos.y,
-          }).then(success => {
-            if (success) setHeldStone(null);
           });
         } else {
-          // Placing a new stone from pot - check for suicide first
+          // Placing a new stone from pot
           if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color)) {
-            // Suicide move - silently ignore
             return;
           }
-          // Check Ko rule - cannot place on Ko point
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
-            // Ko violation - silently ignore
             return;
           }
+          // Optimistic update - show stone immediately with captures
+          const newBoard = game.boardState.map(row => [...row]);
+          newBoard[pos.y][pos.x] = heldStone.color;
+          const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured } = detectAndRemoveCaptures(newBoard);
+          const newPotCount = heldStone.color === 0
+            ? { blackPotCount: game.blackPotCount - 1 }
+            : { whitePotCount: game.whitePotCount - 1 };
+          setGame(prev => prev ? {
+            ...prev,
+            boardState: boardAfterCaptures,
+            lastMoveX: pos.x,
+            lastMoveY: pos.y,
+            blackReturned: prev.blackReturned + blackCaptured,
+            whiteReturned: prev.whiteReturned + whiteCaptured,
+            ...newPotCount
+          } : null);
+          setHeldStone(null);
+          // Send to server in background
           performAction('place', {
             stoneColor: heldStone.color,
             toX: pos.x,
             toY: pos.y,
-          }).then(success => {
-            if (success) setHeldStone(null);
           });
         }
       }
-      // If position is occupied, do nothing (can't stack stones)
     } else {
       // Not holding a stone - pick one up from board
       if (stoneAtPos !== null) {
@@ -542,7 +565,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   // Show key input modal if no key
   if (showKeyModal && !privateKey) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
+      <div className={`flex items-center justify-center p-4 ${isDesktop ? 'min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800' : 'h-dvh bg-black'}`}>
         <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-md w-full">
           <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">
             Access Denied
@@ -578,15 +601,15 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 flex items-center justify-center">
-        <div className="text-xl text-zinc-600 dark:text-zinc-400">Loading board...</div>
+      <div className={`flex items-center justify-center ${isDesktop ? 'min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800' : 'h-dvh bg-black'}`}>
+        <div className={`text-xl ${isDesktop ? 'text-zinc-600 dark:text-zinc-400' : 'text-white'}`}>Loading board...</div>
       </div>
     );
   }
 
   if (error && !game) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 flex items-center justify-center">
+      <div className={`flex items-center justify-center ${isDesktop ? 'min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800' : 'h-dvh bg-black'}`}>
         <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-md text-center">
           <div className="text-red-500 text-xl mb-4">{error}</div>
           <button
@@ -634,8 +657,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   );
 
   return (
-    <div className={`bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 ${isTablet ? 'h-dvh flex flex-col' : 'min-h-screen'}`}>
-      <div className={`container mx-auto px-2 sm:px-4 ${isTablet ? 'flex-1 flex flex-col justify-center pb-[72px]' : 'pt-12 sm:pt-16 pb-4 sm:pb-8'}`}>
+    <div className={`${isDesktop ? 'bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 min-h-screen' : 'bg-black h-dvh flex flex-col'}`}>
+      <div className={`container mx-auto px-2 sm:px-4 ${isDesktop ? 'pt-12 sm:pt-16 pb-4 sm:pb-8' : 'flex-1 flex flex-col justify-center'} ${isTablet ? 'pb-[72px]' : ''} ${isMobile ? 'pb-4' : ''}`}>
         {/* Buttons are now rendered inside GoBoard perimeter */}
 
         {/* Error message */}

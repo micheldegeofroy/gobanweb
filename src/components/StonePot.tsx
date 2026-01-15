@@ -38,13 +38,12 @@ export default function StonePot({
           ? 'bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600'
           : 'bg-zinc-100 hover:bg-white active:bg-zinc-50 border-2 border-zinc-300'
         }
-        ${canPickUp ? 'cursor-grab ring-4 ring-[#8f6c00]/50 hover:ring-[#8f6c00] active:ring-[#8f6c00]' : ''}
-        ${canDropHere ? 'cursor-pointer ring-4 ring-[#8f6c00] active:ring-[#8f6c00]' : ''}
-        ${!canPickUp && !canDropHere ? 'cursor-default opacity-60' : ''}
+        ring-4 ring-[#8f6c00]
+        ${canPickUp ? 'cursor-grab' : ''}
+        ${canDropHere ? 'cursor-pointer' : ''}
         shadow-lg hover:shadow-xl
         ${rotated ? 'rotate-180' : ''}
       `}
-      disabled={!canPickUp && !canDropHere}
     >
       {/* Stone preview in pot */}
       <div
