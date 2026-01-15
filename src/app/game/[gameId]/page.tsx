@@ -42,6 +42,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   const searchParams = useSearchParams();
   const deviceType = useDeviceType();
   const isDesktop = deviceType === 'desktop';
+  const isTablet = deviceType === 'tablet';
 
   // Get gameId from params and key from query string
   const [gameId, setGameId] = useState<string | null>(null);
@@ -603,8 +604,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800">
-      <div className="container mx-auto px-2 sm:px-4 pt-12 sm:pt-16 pb-4 sm:pb-8">
+    <div className={`min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 ${isTablet ? 'flex flex-col' : ''}`}>
+      <div className={`container mx-auto px-2 sm:px-4 ${isTablet ? 'flex-1 flex flex-col justify-center py-4' : 'pt-12 sm:pt-16 pb-4 sm:pb-8'}`}>
         {/* Buttons are now rendered inside GoBoard perimeter */}
 
         {/* Error message */}
