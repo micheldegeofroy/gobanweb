@@ -655,9 +655,30 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             </div>
           </div>
         ) : isTablet ? (
-          /* Tablet: Pots on left and right sides like desktop */
+          /* Tablet: Board centered with menu on both sides, pots at top/bottom */
           <div className="relative flex items-center justify-center">
+            {/* Left menu */}
+            <div className="flex flex-col gap-4 mr-6">
+              <button onClick={() => router.push('/')} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                Home
+              </button>
+              <button onClick={startReplay} disabled={isReplaying} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50">
+                {isReplaying ? 'REPLAYING' : 'REPLAY'}
+              </button>
+            </div>
             <div className="relative">
+              {/* Top pot (White) */}
+              <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: 'calc(100% + 16px)' }}>
+                <StonePot
+                  color={1}
+                  count={game.whitePotCount}
+                  returned={game.whiteReturned}
+                  isHoldingStone={heldStone !== null}
+                  heldStoneColor={heldStone?.color ?? null}
+                  rotated={true}
+                  onClick={() => handlePotClick(1)}
+                />
+              </div>
               <GoBoard
                 board={isReplaying && replayBoard ? replayBoard : game.boardState}
                 size={game.boardSize}
@@ -666,21 +687,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   ? { x: game.lastMoveX, y: game.lastMoveY }
                   : null)}
                 onBoardClick={isReplaying ? () => {} : handleBoardClick}
-                topButtons={topButtons}
               />
-              {/* Left pot (White) */}
-              <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 'calc(100% + 16px)' }}>
-                <StonePot
-                  color={1}
-                  count={game.whitePotCount}
-                  returned={game.whiteReturned}
-                  isHoldingStone={heldStone !== null}
-                  heldStoneColor={heldStone?.color ?? null}
-                  onClick={() => handlePotClick(1)}
-                />
-              </div>
-              {/* Right pot (Black) */}
-              <div className="absolute top-1/2 -translate-y-1/2" style={{ left: 'calc(100% + 16px)' }}>
+              {/* Bottom pot (Black) */}
+              <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 'calc(100% + 16px)' }}>
                 <StonePot
                   color={0}
                   count={game.blackPotCount}
@@ -690,6 +699,15 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   onClick={() => handlePotClick(0)}
                 />
               </div>
+            </div>
+            {/* Right menu */}
+            <div className="flex flex-col gap-4 ml-6">
+              <button onClick={clearBoard} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                CLEAR
+              </button>
+              <button onClick={handleShare} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                {copied ? 'COPIED!' : 'SHARE'}
+              </button>
             </div>
           </div>
         ) : (
