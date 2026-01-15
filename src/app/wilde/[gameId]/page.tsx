@@ -604,8 +604,8 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
   const rightPots = renderPots().slice(Math.ceil(game.playerCount / 2));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-purple-900 dark:via-pink-900 dark:to-blue-900">
-      <div className="container mx-auto px-2 sm:px-4 pt-12 sm:pt-16 pb-4 sm:pb-8">
+    <div className={`min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-purple-900 dark:via-pink-900 dark:to-blue-900 ${isTablet ? 'flex flex-col' : ''}`}>
+      <div className={`container mx-auto px-2 sm:px-4 ${isTablet ? 'flex-1 flex flex-col justify-center py-4' : 'pt-12 sm:pt-16 pb-4 sm:pb-8'}`}>
         {/* Replay Controls */}
         {isReplayMode && (
           <div className="flex items-center justify-center gap-4 mb-4">
