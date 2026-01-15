@@ -15,6 +15,7 @@ interface GoBoardProps {
   lastMove: Position | null;
   onBoardClick: (pos: Position) => void;
   topButtons?: React.ReactNode;
+  bottomButtons?: React.ReactNode;
 }
 
 // Get max board size based on screen dimensions
@@ -54,6 +55,7 @@ export default function GoBoard({
   lastMove,
   onBoardClick,
   topButtons,
+  bottomButtons,
 }: GoBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -431,6 +433,15 @@ export default function GoBoard({
             style={{ top: '1%', left: '10%', right: '10%' }}
           >
             {topButtons}
+          </div>
+        )}
+        {/* Buttons in bottom perimeter area */}
+        {bottomButtons && (
+          <div
+            className="absolute flex items-center justify-between"
+            style={{ bottom: '1%', left: '10%', right: '10%' }}
+          >
+            {bottomButtons}
           </div>
         )}
       </div>

@@ -655,7 +655,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             </div>
           </div>
         ) : isTablet ? (
-          /* Tablet: Menus on sides (vertical), pots at top/bottom */
+          /* Tablet: Menus on board edges (top rotated, bottom normal), pots above/below */
           <div className="flex flex-col items-center">
             {/* Top pot centered */}
             <div className="flex justify-center mb-4">
@@ -669,53 +669,32 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 onClick={() => handlePotClick(1)}
               />
             </div>
-            {/* Board with side menus */}
-            <div className="flex items-center">
-              {/* Left menu - vertical text (bottom to top) */}
-              <div className="flex flex-col gap-6 mr-4">
-                <button
-                  onClick={() => router.push('/')}
-                  className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-                >
-                  Home
-                </button>
-                <button
-                  onClick={startReplay}
-                  disabled={isReplaying}
-                  className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50"
-                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-                >
-                  {isReplaying ? 'REPLAYING' : 'REPLAY'}
-                </button>
-              </div>
-              <GoBoard
-                board={isReplaying && replayBoard ? replayBoard : game.boardState}
-                size={game.boardSize}
-                heldStone={isReplaying ? null : heldStone}
-                lastMove={isReplaying ? replayLastMove : (game.lastMoveX !== null && game.lastMoveY !== null
-                  ? { x: game.lastMoveX, y: game.lastMoveY }
-                  : null)}
-                onBoardClick={isReplaying ? () => {} : handleBoardClick}
-              />
-              {/* Right menu - vertical text (top to bottom) */}
-              <div className="flex flex-col gap-6 ml-4">
-                <button
-                  onClick={clearBoard}
-                  className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-                  style={{ writingMode: 'vertical-rl' }}
-                >
-                  CLEAR
-                </button>
-                <button
-                  onClick={handleShare}
-                  className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-                  style={{ writingMode: 'vertical-rl' }}
-                >
-                  {copied ? 'COPIED!' : 'SHARE'}
-                </button>
-              </div>
-            </div>
+            <GoBoard
+              board={isReplaying && replayBoard ? replayBoard : game.boardState}
+              size={game.boardSize}
+              heldStone={isReplaying ? null : heldStone}
+              lastMove={isReplaying ? replayLastMove : (game.lastMoveX !== null && game.lastMoveY !== null
+                ? { x: game.lastMoveX, y: game.lastMoveY }
+                : null)}
+              onBoardClick={isReplaying ? () => {} : handleBoardClick}
+              topButtons={
+                <div className="flex items-center justify-between w-full rotate-180">
+                  <button onClick={handleShare} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                    {copied ? 'COPIED!' : 'SHARE'}
+                  </button>
+                  <button onClick={clearBoard} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                    CLEAR
+                  </button>
+                  <button onClick={startReplay} disabled={isReplaying} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50">
+                    {isReplaying ? 'REPLAYING' : 'REPLAY'}
+                  </button>
+                  <button onClick={() => router.push('/')} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                    Home
+                  </button>
+                </div>
+              }
+              bottomButtons={topButtons}
+            />
             {/* Bottom pot centered */}
             <div className="flex justify-center mt-4">
               <StonePot
