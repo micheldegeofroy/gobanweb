@@ -655,16 +655,10 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             </div>
           </div>
         ) : isTablet ? (
-          /* Tablet: Menu and pots at top/bottom */
+          /* Tablet: Menu on board perimeter, pots centered at top/bottom */
           <div className="flex flex-col items-center">
-            {/* Top row: menu + pot */}
-            <div className="flex items-center justify-center gap-6 mb-4">
-              <button onClick={() => router.push('/')} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
-                Home
-              </button>
-              <button onClick={startReplay} disabled={isReplaying} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50">
-                {isReplaying ? 'REPLAYING' : 'REPLAY'}
-              </button>
+            {/* Top pot centered */}
+            <div className="flex justify-center mb-4">
               <StonePot
                 color={1}
                 count={game.whitePotCount}
@@ -683,9 +677,10 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 ? { x: game.lastMoveX, y: game.lastMoveY }
                 : null)}
               onBoardClick={isReplaying ? () => {} : handleBoardClick}
+              topButtons={topButtons}
             />
-            {/* Bottom row: pot + menu */}
-            <div className="flex items-center justify-center gap-6 mt-4">
+            {/* Bottom pot centered */}
+            <div className="flex justify-center mt-4">
               <StonePot
                 color={0}
                 count={game.blackPotCount}
@@ -694,12 +689,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 heldStoneColor={heldStone?.color ?? null}
                 onClick={() => handlePotClick(0)}
               />
-              <button onClick={clearBoard} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
-                CLEAR
-              </button>
-              <button onClick={handleShare} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
-                {copied ? 'COPIED!' : 'SHARE'}
-              </button>
             </div>
           </div>
         ) : (
