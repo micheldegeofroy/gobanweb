@@ -655,19 +655,32 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             </div>
           </div>
         ) : isTablet ? (
-          /* Tablet: Menu on board perimeter, pots centered at top/bottom */
+          /* Tablet: Duplicated menu for each player, pots at top/bottom */
           <div className="flex flex-col items-center">
-            {/* Top pot centered */}
-            <div className="flex justify-center mb-4">
+            {/* Top row: menu (rotated) + pot for opponent */}
+            <div className="flex items-center justify-center gap-4 mb-4 rotate-180">
               <StonePot
                 color={1}
                 count={game.whitePotCount}
                 returned={game.whiteReturned}
                 isHoldingStone={heldStone !== null}
                 heldStoneColor={heldStone?.color ?? null}
-                rotated={true}
                 onClick={() => handlePotClick(1)}
               />
+              <div className="flex gap-4">
+                <button onClick={() => router.push('/')} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                  Home
+                </button>
+                <button onClick={startReplay} disabled={isReplaying} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50">
+                  {isReplaying ? 'REPLAYING' : 'REPLAY'}
+                </button>
+                <button onClick={clearBoard} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                  CLEAR
+                </button>
+                <button onClick={handleShare} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                  {copied ? 'COPIED!' : 'SHARE'}
+                </button>
+              </div>
             </div>
             <GoBoard
               board={isReplaying && replayBoard ? replayBoard : game.boardState}
@@ -677,10 +690,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 ? { x: game.lastMoveX, y: game.lastMoveY }
                 : null)}
               onBoardClick={isReplaying ? () => {} : handleBoardClick}
-              topButtons={topButtons}
             />
-            {/* Bottom pot centered */}
-            <div className="flex justify-center mt-4">
+            {/* Bottom row: pot + menu for current player */}
+            <div className="flex items-center justify-center gap-4 mt-4">
               <StonePot
                 color={0}
                 count={game.blackPotCount}
@@ -689,6 +701,20 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 heldStoneColor={heldStone?.color ?? null}
                 onClick={() => handlePotClick(0)}
               />
+              <div className="flex gap-4">
+                <button onClick={() => router.push('/')} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                  Home
+                </button>
+                <button onClick={startReplay} disabled={isReplaying} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50">
+                  {isReplaying ? 'REPLAYING' : 'REPLAY'}
+                </button>
+                <button onClick={clearBoard} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                  CLEAR
+                </button>
+                <button onClick={handleShare} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                  {copied ? 'COPIED!' : 'SHARE'}
+                </button>
+              </div>
             </div>
           </div>
         ) : (
