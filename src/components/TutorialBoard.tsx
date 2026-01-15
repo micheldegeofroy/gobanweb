@@ -11,12 +11,27 @@ interface Highlight {
   color: string;
 }
 
+interface CaptureAnimation {
+  x: number;
+  y: number;
+  color: 0 | 1;
+}
+
+interface AppearAnimation {
+  x: number;
+  y: number;
+  color: 0 | 1;
+}
+
 interface TutorialBoardProps {
   board: Board;
   size: number;
   lastMove?: Position | null;
   highlights?: Highlight[];
   showLiberties?: Position | null; // Show liberties for stone at this position
+  crossMarkers?: Position[]; // Show crosses at these positions
+  captureAnimation?: CaptureAnimation | null;
+  appearAnimation?: AppearAnimation | null; // Stone that appears (triggers capture)
 }
 
 export default function TutorialBoard({
@@ -25,10 +40,16 @@ export default function TutorialBoard({
   lastMove = null,
   highlights = [],
   showLiberties = null,
+  crossMarkers = [],
+  captureAnimation = null,
+  appearAnimation = null,
 }: TutorialBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState(300);
+  const [captureOpacity, setCaptureOpacity] = useState(1);
+  const [appearOpacity, setAppearOpacity] = useState(0);
+  const animationRef = useRef<number | null>(null);
 
   const padding = canvasSize * 0.08;
   const boardWidth = canvasSize - padding * 2;
@@ -216,16 +237,44 @@ export default function TutorialBoard({
       }
     }
 
-    // Show liberties if requested
+    // Show liberties if requested (as black crosses)
     if (showLiberties) {
       const liberties = getLiberties(showLiberties);
-      ctx.fillStyle = 'rgba(217, 119, 6, 0.9)'; // Amber-600 hue
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      const crossSize = cellSize * 0.25;
       for (const lib of liberties) {
         const cx = padding + lib.x * cellSize;
         const cy = padding + lib.y * cellSize;
+        // Draw X cross
         ctx.beginPath();
-        ctx.arc(cx, cy, cellSize * 0.3, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(cx - crossSize, cy - crossSize);
+        ctx.lineTo(cx + crossSize, cy + crossSize);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx + crossSize, cy - crossSize);
+        ctx.lineTo(cx - crossSize, cy + crossSize);
+        ctx.stroke();
+      }
+    }
+
+    // Show cross markers at specific positions
+    if (crossMarkers.length > 0) {
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      const crossSize = cellSize * 0.25;
+      for (const pos of crossMarkers) {
+        const cx = padding + pos.x * cellSize;
+        const cy = padding + pos.y * cellSize;
+        // Draw X cross
+        ctx.beginPath();
+        ctx.moveTo(cx - crossSize, cy - crossSize);
+        ctx.lineTo(cx + crossSize, cy + crossSize);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx + crossSize, cy - crossSize);
+        ctx.lineTo(cx - crossSize, cy + crossSize);
+        ctx.stroke();
       }
     }
 
@@ -251,15 +300,28 @@ export default function TutorialBoard({
       ctx.arc(cx, cy, cellSize * 0.35, 0, Math.PI * 2);
       ctx.stroke();
     }
-  }, [board, size, canvasSize, lastMove, highlights, showLiberties, cellSize, padding, drawStone, getLiberties]);
+
+    // Draw appear animation (stone appearing)
+    if (appearAnimation && appearOpacity > 0) {
+      const cx = padding + appearAnimation.x * cellSize;
+      const cy = padding + appearAnimation.y * cellSize;
+      drawStone(ctx, cx, cy, appearAnimation.color, cellSize * 0.45, appearOpacity);
+    }
+
+    // Draw capture animation (fading stone)
+    if (captureAnimation && captureOpacity > 0) {
+      const cx = padding + captureAnimation.x * cellSize;
+      const cy = padding + captureAnimation.y * cellSize;
+      drawStone(ctx, cx, cy, captureAnimation.color, cellSize * 0.45, captureOpacity);
+    }
+  }, [board, size, canvasSize, lastMove, highlights, showLiberties, crossMarkers, cellSize, padding, drawStone, getLiberties, captureAnimation, captureOpacity, appearAnimation, appearOpacity]);
 
   // Handle resize
   useEffect(() => {
     const handleResize = () => {
       if (containerRef.current) {
         const width = containerRef.current.clientWidth;
-        const newSize = Math.min(width, 350);
-        setCanvasSize(newSize);
+        setCanvasSize(width);
       }
     };
 
@@ -268,12 +330,85 @@ export default function TutorialBoard({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Animation loop for appear + capture sequence
+  useEffect(() => {
+    if (appearAnimation && captureAnimation) {
+      // Simultaneous animation: black appears while white fades
+      setAppearOpacity(0);
+      setCaptureOpacity(1);
+      let startTime: number | null = null;
+      const animationDuration = 1500; // 1.5 seconds for both
+      const pauseDuration = 800; // pause before restart
+      const totalCycle = animationDuration + pauseDuration;
+
+      const animate = (timestamp: number) => {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const cycleTime = elapsed % totalCycle;
+
+        if (cycleTime < animationDuration) {
+          // Black appears while white fades simultaneously
+          const progress = cycleTime / animationDuration;
+          setAppearOpacity(progress);
+          setCaptureOpacity(1 - progress);
+        } else {
+          // Pause, reset for next cycle
+          setAppearOpacity(0);
+          setCaptureOpacity(1);
+        }
+
+        animationRef.current = requestAnimationFrame(animate);
+      };
+
+      animationRef.current = requestAnimationFrame(animate);
+
+      return () => {
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
+      };
+    } else if (captureAnimation) {
+      // Only capture animation (original behavior)
+      setCaptureOpacity(1);
+      let startTime: number | null = null;
+      const duration = 1500;
+      const pauseDuration = 500;
+
+      const animate = (timestamp: number) => {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const totalCycle = duration + pauseDuration;
+        const cycleTime = elapsed % totalCycle;
+
+        if (cycleTime < duration) {
+          const progress = cycleTime / duration;
+          setCaptureOpacity(1 - progress);
+        } else {
+          setCaptureOpacity(1);
+        }
+
+        animationRef.current = requestAnimationFrame(animate);
+      };
+
+      animationRef.current = requestAnimationFrame(animate);
+
+      return () => {
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
+      };
+    } else {
+      setCaptureOpacity(1);
+      setAppearOpacity(0);
+    }
+  }, [captureAnimation, appearAnimation]);
+
   useEffect(() => {
     draw();
   }, [draw]);
 
   return (
-    <div ref={containerRef} className="w-full mx-auto" style={{ maxWidth: 350 }}>
+    <div ref={containerRef} className="w-full mx-auto">
       <canvas
         ref={canvasRef}
         width={canvasSize}

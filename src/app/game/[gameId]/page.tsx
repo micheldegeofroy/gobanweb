@@ -442,6 +442,41 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     }
   };
 
+  const clearBoard = async () => {
+    if (!privateKey || !gameId) return;
+    try {
+      const res = await fetch(`/api/games/${gameId}/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ privateKey }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to clear board');
+        setTimeout(() => setError(null), 3000);
+        return;
+      }
+      const data = await res.json();
+      setGame(prev => prev ? {
+        ...prev,
+        boardState: data.boardState,
+        blackPotCount: data.blackPotCount,
+        whitePotCount: data.whitePotCount,
+        blackReturned: data.blackReturned,
+        whiteReturned: data.whiteReturned,
+        lastMoveX: data.lastMoveX,
+        lastMoveY: data.lastMoveY,
+        koPointX: data.koPointX,
+        koPointY: data.koPointY,
+      } : null);
+      setHeldStone(null);
+    } catch (err) {
+      console.error('Error clearing board:', err);
+      setError('Failed to clear board');
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+
   // Auto-play effect
   useEffect(() => {
     if (isAutoPlaying && isReplaying && game) {
@@ -536,31 +571,41 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
 
   if (!game) return null;
 
+  // Top buttons for GoBoard perimeter - black bold text
+  const topButtons = (
+    <>
+      <button
+        onClick={() => router.push('/')}
+        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
+      >
+        Home
+      </button>
+      <button
+        onClick={startReplay}
+        disabled={isReplaying}
+        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50"
+      >
+        {isReplaying ? 'REPLAYING' : 'REPLAY'}
+      </button>
+      <button
+        onClick={clearBoard}
+        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
+      >
+        CLEAR
+      </button>
+      <button
+        onClick={handleShare}
+        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
+      >
+        {copied ? 'COPIED!' : 'SHARE'}
+      </button>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800">
-      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <button
-            onClick={() => router.push('/')}
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors text-sm"
-          >
-            Home
-          </button>
-          <button
-            onClick={startReplay}
-            disabled={isReplaying}
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors text-sm disabled:opacity-50"
-          >
-            {isReplaying ? 'Replaying...' : 'Replay'}
-          </button>
-          <button
-            onClick={handleShare}
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors text-sm"
-          >
-            {copied ? 'Copied!' : 'Share'}
-          </button>
-        </div>
+      <div className="container mx-auto px-2 sm:px-4 pt-12 sm:pt-16 pb-4 sm:pb-8">
+        {/* Buttons are now rendered inside GoBoard perimeter */}
 
         {/* Error message */}
         {error && (
@@ -582,6 +627,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   ? { x: game.lastMoveX, y: game.lastMoveY }
                   : null)}
                 onBoardClick={isReplaying ? () => {} : handleBoardClick}
+                topButtons={topButtons}
               />
               {/* Left pot (White) - positioned from left edge */}
               <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 'calc(100% + 20px)' }}>
@@ -631,6 +677,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   ? { x: game.lastMoveX, y: game.lastMoveY }
                   : null)}
                 onBoardClick={isReplaying ? () => {} : handleBoardClick}
+                topButtons={topButtons}
               />
               {/* Bottom pot (Black) */}
               <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 'calc(100% + 20px)' }}>
@@ -656,6 +703,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 ? { x: game.lastMoveX, y: game.lastMoveY }
                 : null)}
               onBoardClick={isReplaying ? () => {} : handleBoardClick}
+              topButtons={topButtons}
             />
             {/* Both pots at bottom */}
             <div className="flex gap-4 mt-4">

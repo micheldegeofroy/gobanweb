@@ -17,6 +17,7 @@ interface CrazyGoBoardProps {
   heldStone: CrazyHeldStone | null;
   lastMove: Position | null;
   onBoardClick: (pos: Position) => void;
+  topButtons?: React.ReactNode;
 }
 
 const getMaxBoardSize = () => {
@@ -49,6 +50,7 @@ export default function CrazyGoBoard({
   heldStone,
   lastMove,
   onBoardClick,
+  topButtons,
 }: CrazyGoBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,7 +58,7 @@ export default function CrazyGoBoard({
   const [hoverPos, setHoverPos] = useState<Position | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
-  const padding = canvasSize * 0.05;
+  const padding = canvasSize * 0.10;
   const boardWidth = canvasSize - padding * 2;
   const cellSize = boardWidth / (size - 1);
 
@@ -331,20 +333,31 @@ export default function CrazyGoBoard({
 
   return (
     <div ref={containerRef} className="w-full mx-auto" style={{ maxWidth: canvasSize }}>
-      <canvas
-        ref={canvasRef}
-        width={canvasSize}
-        height={canvasSize}
-        onClick={handleClick}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => { setHoverPos(null); setMousePos(null); }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={() => { setHoverPos(null); setMousePos(null); }}
-        className={`w-full h-auto rounded-lg shadow-lg ${heldStone ? 'cursor-none' : 'cursor-pointer'}`}
-        style={{ touchAction: 'none' }}
-      />
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          width={canvasSize}
+          height={canvasSize}
+          onClick={handleClick}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => { setHoverPos(null); setMousePos(null); }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={() => { setHoverPos(null); setMousePos(null); }}
+          className={`w-full h-auto rounded-lg shadow-lg ${heldStone ? 'cursor-none' : 'cursor-pointer'}`}
+          style={{ touchAction: 'none' }}
+        />
+        {/* Buttons in top perimeter area */}
+        {topButtons && (
+          <div
+            className="absolute flex items-center justify-between"
+            style={{ top: '1%', left: '10%', right: '10%' }}
+          >
+            {topButtons}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

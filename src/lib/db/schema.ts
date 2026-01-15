@@ -57,6 +57,8 @@ export const crazyGames = pgTable('crazy_games', {
   lastMoveY: integer('last_move_y'),
   koPointX: integer('ko_point_x'),
   koPointY: integer('ko_point_y'),
+  currentTurn: integer('current_turn').notNull().default(0), // 0=black, 1=white, 2=black-cross, 3=white-cross
+  moveNumber: integer('move_number').notNull().default(0),
   connectedUsers: integer('connected_users').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -64,3 +66,67 @@ export const crazyGames = pgTable('crazy_games', {
 
 export type CrazyGame = typeof crazyGames.$inferSelect;
 export type NewCrazyGame = typeof crazyGames.$inferInsert;
+
+// Crazy Go actions log - for replay
+export const crazyActions = pgTable('crazy_actions', {
+  id: text('id').primaryKey(), // UUID
+  gameId: text('game_id').notNull().references(() => crazyGames.id, { onDelete: 'cascade' }),
+  actionType: text('action_type').notNull(), // 'place', 'remove', 'move'
+  stoneColor: integer('stone_color'), // 0=black, 1=white, 2=white-cross, 3=black-cross
+  fromX: integer('from_x'),
+  fromY: integer('from_y'),
+  toX: integer('to_x'),
+  toY: integer('to_y'),
+  moveNumber: integer('move_number').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export type CrazyAction = typeof crazyActions.$inferSelect;
+export type NewCrazyAction = typeof crazyActions.$inferInsert;
+
+// Stone pot type for Wilde Go
+export interface StonePot {
+  potCount: number;
+  returned: number;
+}
+
+// Wilde Go games table - 2-8 players, custom rectangular boards
+export const wildeGames = pgTable('wilde_games', {
+  id: text('id').primaryKey(),
+  publicKey: text('public_key').notNull(),
+  boardWidth: integer('board_width').notNull().default(19), // 3-20
+  boardHeight: integer('board_height').notNull().default(19), // 3-20
+  playerCount: integer('player_count').notNull().default(2), // 2-8
+  boardState: jsonb('board_state').notNull().$type<(number | null)[][]>(),
+  // Stone pots as JSON array: [{potCount, returned}, ...]
+  stonePots: jsonb('stone_pots').notNull().$type<StonePot[]>(),
+  lastMoveX: integer('last_move_x'),
+  lastMoveY: integer('last_move_y'),
+  koPointX: integer('ko_point_x'),
+  koPointY: integer('ko_point_y'),
+  currentTurn: integer('current_turn').notNull().default(0),
+  moveNumber: integer('move_number').notNull().default(0),
+  connectedUsers: integer('connected_users').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export type WildeGame = typeof wildeGames.$inferSelect;
+export type NewWildeGame = typeof wildeGames.$inferInsert;
+
+// Wilde Go actions log - for replay
+export const wildeActions = pgTable('wilde_actions', {
+  id: text('id').primaryKey(),
+  gameId: text('game_id').notNull().references(() => wildeGames.id, { onDelete: 'cascade' }),
+  actionType: text('action_type').notNull(), // 'place', 'remove', 'move'
+  stoneColor: integer('stone_color'), // 0-7
+  fromX: integer('from_x'),
+  fromY: integer('from_y'),
+  toX: integer('to_x'),
+  toY: integer('to_y'),
+  moveNumber: integer('move_number').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export type WildeAction = typeof wildeActions.$inferSelect;
+export type NewWildeAction = typeof wildeActions.$inferInsert;

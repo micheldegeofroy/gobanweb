@@ -1,11 +1,12 @@
 'use client';
 
 interface CrazyStonePotProps {
-  color: 0 | 1 | 2 | 3; // 0=black, 1=white, 2=brown, 3=grey
+  color: 0 | 1 | 2 | 3; // 0=black, 1=white, 2=white-cross, 3=black-cross
   count: number;
   returned: number;
   isHoldingStone: boolean;
   heldStoneColor: 0 | 1 | 2 | 3 | null;
+  isCurrentTurn?: boolean;
   small?: boolean;
   onClick: () => void;
 }
@@ -46,11 +47,12 @@ export default function CrazyStonePot({
   returned,
   isHoldingStone,
   heldStoneColor,
+  isCurrentTurn = false,
   small = false,
   onClick,
 }: CrazyStonePotProps) {
   const total = count + returned;
-  const canPickUp = !isHoldingStone && total > 0;
+  const canPickUp = !isHoldingStone && total > 0 && isCurrentTurn;
   const canDropHere = isHoldingStone && heldStoneColor === color;
   const styles = colorStyles[color];
 
@@ -63,9 +65,10 @@ export default function CrazyStonePot({
         transition-all duration-200
         ${small ? 'w-14 h-14' : 'w-20 h-20'}
         ${styles.bg}
-        ${canPickUp ? 'cursor-grab ring-4 ring-amber-400/50 hover:ring-amber-400 active:ring-amber-500' : ''}
-        ${canDropHere ? 'cursor-pointer ring-4 ring-amber-600 active:ring-amber-700' : ''}
-        ${!canPickUp && !canDropHere ? 'cursor-default opacity-60' : ''}
+        ${isCurrentTurn ? 'ring-4 ring-red-500' : 'ring-4 ring-[#8f6c00]'}
+        ${canPickUp ? 'cursor-grab hover:ring-red-400 active:ring-red-600' : ''}
+        ${canDropHere ? 'cursor-pointer ring-[#8f6c00] active:ring-[#8f6c00]' : ''}
+        ${!canPickUp && !canDropHere ? 'cursor-default' : ''}
         shadow-lg hover:shadow-xl
       `}
       disabled={!canPickUp && !canDropHere}

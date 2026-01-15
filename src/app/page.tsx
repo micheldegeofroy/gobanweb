@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const router = useRouter();
-  const [boardSize, setBoardSize] = useState<9 | 13 | 19>(19);
+  const [boardSize, setBoardSize] = useState<9 | 13 | 19>(13);
   const [isCreating, setIsCreating] = useState(false);
   const [boardUrl, setBoardUrl] = useState('');
   const [isJoining, setIsJoining] = useState(false);
@@ -94,28 +94,40 @@ export default function Home() {
             Online Go Board
           </h1>
           {gameCount !== null && (
-            <p className="text-lg text-amber-600 font-semibold mt-2">
+            <p className="text-lg font-semibold mt-2 text-white">
               {gameCount} games played!
             </p>
           )}
         </header>
 
         <div className="max-w-md mx-auto">
-          {/* Single Card for Create and Join */}
-          <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8">
+          {/* Single Card for Create and Join - Wood effect */}
+          <div
+            className="rounded-2xl shadow-xl p-8"
+            style={{
+              backgroundColor: '#DEB887',
+              backgroundImage: `repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 7px,
+                rgba(139, 90, 43, 0.08) 7px,
+                rgba(139, 90, 43, 0.08) 8px
+              )`
+            }}
+          >
             {/* Board Size Buttons */}
             <div className="flex gap-3 mb-4">
               {[9, 13, 19].map((size) => (
                 <button
                   key={size}
                   onClick={() => setBoardSize(size as 9 | 13 | 19)}
-                  className={`flex-1 py-3 rounded-lg font-medium transition-all ${
+                  className={`flex-1 py-3 rounded-lg font-bold transition-all ${
                     boardSize === size
-                      ? 'bg-amber-600 text-white shadow-md'
-                      : 'bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-600'
+                      ? 'bg-white text-black shadow-md'
+                      : 'bg-black text-white hover:bg-zinc-800'
                   }`}
                 >
-                  {size}x{size}
+                  {size}
                 </button>
               ))}
             </div>
@@ -124,32 +136,11 @@ export default function Home() {
             <button
               onClick={createGame}
               disabled={isCreating}
-              className="w-full py-3 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-800 rounded-lg font-semibold hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-black dark:bg-zinc-100 text-white dark:text-zinc-800 rounded-lg font-semibold hover:bg-zinc-900 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isCreating ? 'Creating...' : 'Create Board'}
             </button>
 
-            {/* Spacer */}
-            <div style={{ height: '16px' }}></div>
-
-            {/* Paste URL Input */}
-            <input
-              type="text"
-              value={boardUrl}
-              onChange={(e) => setBoardUrl(e.target.value)}
-              placeholder="Paste Board URL"
-              className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4 text-center"
-              onKeyDown={(e) => e.key === 'Enter' && joinGame()}
-            />
-
-            {/* Join Board Button */}
-            <button
-              onClick={joinGame}
-              disabled={isJoining}
-              className="w-full py-3 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isJoining ? 'Joining...' : 'Join Board'}
-            </button>
           </div>
         </div>
 
@@ -215,7 +206,7 @@ export default function Home() {
           </p>
           <button
             onClick={() => router.push('/tutorial')}
-            className="px-6 py-3 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-800 rounded-lg font-semibold hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors"
+            className="px-6 py-3 bg-black dark:bg-zinc-100 text-white dark:text-zinc-800 rounded-lg font-semibold hover:bg-zinc-900 dark:hover:bg-zinc-200 transition-colors"
           >
             Start Free Tutorial
           </button>

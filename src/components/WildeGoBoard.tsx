@@ -1,17 +1,23 @@
 'use client';
 
 import { useRef, useEffect, useCallback, useState } from 'react';
-import type { Board, Position } from '@/lib/game/logic';
+import { WILDE_COLORS } from '@/lib/wilde/colors';
 
-export type HeldStone = {
-  color: 0 | 1;
-  fromBoard?: Position; // If picked up from board, store original position
+type WildeStone = number | null; // 0-7 for players, null for empty
+type WildeBoard = WildeStone[][];
+type Position = { x: number; y: number };
+
+export type WildeHeldStone = {
+  color: number;
+  fromBoard?: Position;
 };
 
-interface GoBoardProps {
-  board: Board;
-  size: number;
-  heldStone: HeldStone | null;
+interface WildeGoBoardProps {
+  board: WildeBoard;
+  width: number;
+  height: number;
+  playerCount: number;
+  heldStone: WildeHeldStone | null;
   lastMove: Position | null;
   onBoardClick: (pos: Position) => void;
   topButtons?: React.ReactNode;
@@ -21,50 +27,59 @@ interface GoBoardProps {
 const getMaxBoardSize = () => {
   if (typeof window === 'undefined') return 600;
 
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  const isLandscape = width > height;
+  const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
+  const isLandscape = screenWidth > screenHeight;
 
-  // For tablets in landscape, use more of the height
-  // For phones in portrait, use most of the width
-  // Leave room for header, bowls, and padding
-
-  if (width >= 1024) {
-    // Desktop - max 600px
+  if (screenWidth >= 1024) {
     return 600;
-  } else if (width >= 768) {
-    // Tablet
+  } else if (screenWidth >= 768) {
     if (isLandscape) {
-      return Math.min(height - 200, width - 300, 700);
+      return Math.min(screenHeight - 200, screenWidth - 300, 700);
     }
-    return Math.min(width - 40, height - 280, 700);
+    return Math.min(screenWidth - 40, screenHeight - 280, 700);
   } else {
-    // Phone
     if (isLandscape) {
-      return Math.min(height - 100, width - 200, 400);
+      return Math.min(screenHeight - 100, screenWidth - 200, 400);
     }
-    return Math.min(width - 24, height - 260, 500);
+    return Math.min(screenWidth - 24, screenHeight - 260, 500);
   }
 };
 
-export default function GoBoard({
+export default function WildeGoBoard({
   board,
-  size,
+  width,
+  height,
+  playerCount,
   heldStone,
   lastMove,
   onBoardClick,
   topButtons,
-}: GoBoardProps) {
+}: WildeGoBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [canvasSize, setCanvasSize] = useState(600);
+  const [maxSize, setMaxSize] = useState(600);
   const [hoverPos, setHoverPos] = useState<Position | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
-  // Calculate cell size based on canvas size
-  const padding = canvasSize * 0.10;
-  const boardWidth = canvasSize - padding * 2;
-  const cellSize = boardWidth / (size - 1);
+  // Calculate canvas dimensions for rectangular board
+  const aspectRatio = width / height;
+  let canvasWidth: number;
+  let canvasHeight: number;
+  if (aspectRatio >= 1) {
+    canvasWidth = maxSize;
+    canvasHeight = maxSize / aspectRatio;
+  } else {
+    canvasWidth = maxSize * aspectRatio;
+    canvasHeight = maxSize;
+  }
+
+  const padding = Math.min(canvasWidth, canvasHeight) * 0.10;
+  const boardPixelWidth = canvasWidth - padding * 2;
+  const boardPixelHeight = canvasHeight - padding * 2;
+  const cellSizeX = boardPixelWidth / (width - 1);
+  const cellSizeY = boardPixelHeight / (height - 1);
+  const cellSize = Math.min(cellSizeX, cellSizeY);
 
   // Convert canvas coordinates to board position
   const canvasToBoard = useCallback(
@@ -79,15 +94,15 @@ export default function GoBoard({
       const x = (clientX - rect.left) * scaleX;
       const y = (clientY - rect.top) * scaleY;
 
-      const boardX = Math.round((x - padding) / cellSize);
-      const boardY = Math.round((y - padding) / cellSize);
+      const boardX = Math.round((x - padding) / cellSizeX);
+      const boardY = Math.round((y - padding) / cellSizeY);
 
-      if (boardX >= 0 && boardX < size && boardY >= 0 && boardY < size) {
+      if (boardX >= 0 && boardX < width && boardY >= 0 && boardY < height) {
         return { x: boardX, y: boardY };
       }
       return null;
     },
-    [padding, cellSize, size]
+    [padding, cellSizeX, cellSizeY, width, height]
   );
 
   // Draw a single stone with 3D effect
@@ -95,35 +110,15 @@ export default function GoBoard({
     ctx: CanvasRenderingContext2D,
     cx: number,
     cy: number,
-    color: 0 | 1,
+    color: number,
     radius: number,
     isGhost: boolean = false
   ) => {
-    if (isGhost) {
-      ctx.globalAlpha = 0.5;
-    }
+    if (isGhost) ctx.globalAlpha = 0.5;
 
-    // Create gradient for 3D effect
-    const gradient = ctx.createRadialGradient(
-      cx - radius * 0.3,
-      cy - radius * 0.3,
-      0,
-      cx,
-      cy,
-      radius
-    );
+    const colors = WILDE_COLORS[color] || WILDE_COLORS[0];
 
-    if (color === 0) {
-      // Black stone
-      gradient.addColorStop(0, '#4a4a4a');
-      gradient.addColorStop(1, '#1a1a1a');
-    } else {
-      // White stone
-      gradient.addColorStop(0, '#ffffff');
-      gradient.addColorStop(1, '#d0d0d0');
-    }
-
-    // Draw shadow
+    // Shadow
     if (!isGhost) {
       ctx.beginPath();
       ctx.arc(cx + 2, cy + 2, radius, 0, Math.PI * 2);
@@ -131,96 +126,113 @@ export default function GoBoard({
       ctx.fill();
     }
 
-    // Draw stone
+    // Gradient fill
+    const gradient = ctx.createRadialGradient(
+      cx - radius * 0.3, cy - radius * 0.3, 0,
+      cx, cy, radius
+    );
+    gradient.addColorStop(0, colors.light);
+    gradient.addColorStop(1, colors.dark);
+
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     ctx.fillStyle = gradient;
     ctx.fill();
 
-    // Add subtle outline
-    ctx.strokeStyle = color === 0 ? '#000000' : '#b0b0b0';
-    ctx.lineWidth = 0.5;
+    // Outline
+    ctx.strokeStyle = colors.outline;
+    ctx.lineWidth = 1;
     ctx.stroke();
 
-    if (isGhost) {
-      ctx.globalAlpha = 1;
-    }
+    if (isGhost) ctx.globalAlpha = 1;
   }, []);
 
-  // Get star points based on board size
-  const getStarPoints = useCallback((size: number): Position[] => {
-    if (size === 19) {
-      return [
-        { x: 3, y: 3 }, { x: 9, y: 3 }, { x: 15, y: 3 },
-        { x: 3, y: 9 }, { x: 9, y: 9 }, { x: 15, y: 9 },
-        { x: 3, y: 15 }, { x: 9, y: 15 }, { x: 15, y: 15 },
-      ];
-    } else if (size === 13) {
-      return [
-        { x: 3, y: 3 }, { x: 9, y: 3 },
-        { x: 6, y: 6 },
-        { x: 3, y: 9 }, { x: 9, y: 9 },
-      ];
-    } else if (size === 9) {
-      return [
-        { x: 2, y: 2 }, { x: 6, y: 2 },
-        { x: 4, y: 4 },
-        { x: 2, y: 6 }, { x: 6, y: 6 },
-      ];
+  // Get star points for rectangular boards
+  const getStarPoints = useCallback((w: number, h: number): Position[] => {
+    if (w < 7 || h < 7) return [];
+
+    const getEdgeOffset = (size: number) => size >= 13 ? 3 : 2;
+    const xOffset = getEdgeOffset(w);
+    const yOffset = getEdgeOffset(h);
+
+    const points: Position[] = [];
+    const xPositions = [xOffset, Math.floor(w / 2), w - 1 - xOffset];
+    const yPositions = [yOffset, Math.floor(h / 2), h - 1 - yOffset];
+
+    // Only include unique positions
+    const seen = new Set<string>();
+    for (const x of xPositions) {
+      for (const y of yPositions) {
+        if (x >= 0 && x < w && y >= 0 && y < h) {
+          const key = `${x},${y}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            points.push({ x, y });
+          }
+        }
+      }
     }
-    return [];
+    return points;
   }, []);
 
   // Draw the board
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
-    ctx.fillStyle = '#DEB887'; // Burlywood - traditional Go board color
-    ctx.fillRect(0, 0, canvasSize, canvasSize);
+    // Rainbow gradient background for wild mode!
+    const bgGradient = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
+    bgGradient.addColorStop(0, '#FFE4E1');   // Misty rose
+    bgGradient.addColorStop(0.25, '#E6E6FA'); // Lavender
+    bgGradient.addColorStop(0.5, '#E0FFFF');  // Light cyan
+    bgGradient.addColorStop(0.75, '#F0FFF0'); // Honeydew
+    bgGradient.addColorStop(1, '#FFF0F5');    // Lavender blush
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    // Draw wood grain texture
-    ctx.strokeStyle = 'rgba(139, 90, 43, 0.1)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < canvasSize; i += 8) {
+    // Fun sparkle overlay
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    for (let i = 0; i < 30; i++) {
+      const sparkleX = (Math.sin(i * 7.3) * 0.5 + 0.5) * canvasWidth;
+      const sparkleY = (Math.cos(i * 5.7) * 0.5 + 0.5) * canvasHeight;
       ctx.beginPath();
-      ctx.moveTo(0, i + Math.random() * 4);
-      ctx.lineTo(canvasSize, i + Math.random() * 4);
+      ctx.arc(sparkleX, sparkleY, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Grid lines with rainbow colors
+    ctx.lineWidth = 1;
+    for (let i = 0; i < width; i++) {
+      const x = padding + i * cellSizeX;
+      const hue = (i / width) * 360;
+      ctx.strokeStyle = `hsla(${hue}, 50%, 50%, 0.6)`;
+      ctx.beginPath();
+      ctx.moveTo(x, padding);
+      ctx.lineTo(x, padding + (height - 1) * cellSizeY);
+      ctx.stroke();
+    }
+    for (let i = 0; i < height; i++) {
+      const y = padding + i * cellSizeY;
+      const hue = (i / height) * 360;
+      ctx.strokeStyle = `hsla(${hue}, 50%, 50%, 0.6)`;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(padding + (width - 1) * cellSizeX, y);
       ctx.stroke();
     }
 
-    // Draw grid lines
-    ctx.strokeStyle = '#3d2914';
-    ctx.lineWidth = 1;
-
-    for (let i = 0; i < size; i++) {
-      const pos = padding + i * cellSize;
-
-      // Vertical lines
-      ctx.beginPath();
-      ctx.moveTo(pos, padding);
-      ctx.lineTo(pos, padding + (size - 1) * cellSize);
-      ctx.stroke();
-
-      // Horizontal lines
-      ctx.beginPath();
-      ctx.moveTo(padding, pos);
-      ctx.lineTo(padding + (size - 1) * cellSize, pos);
-      ctx.stroke();
-    }
-
-    // Draw star points (hoshi)
-    const starPoints = getStarPoints(size);
-    ctx.fillStyle = '#3d2914';
-    for (const point of starPoints) {
+    // Star points with rainbow colors
+    const starPoints = getStarPoints(width, height);
+    for (let i = 0; i < starPoints.length; i++) {
+      const point = starPoints[i];
+      const hue = (i / starPoints.length) * 360;
+      ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
       ctx.beginPath();
       ctx.arc(
-        padding + point.x * cellSize,
-        padding + point.y * cellSize,
+        padding + point.x * cellSizeX,
+        padding + point.y * cellSizeY,
         cellSize * 0.12,
         0,
         Math.PI * 2
@@ -228,46 +240,44 @@ export default function GoBoard({
       ctx.fill();
     }
 
-    // Draw stones on board
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
+    // Draw stones
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
         const stone = board[y][x];
         if (stone !== null) {
-          // If this stone is being held (picked up from board), show it faded
           const isBeingHeld = heldStone?.fromBoard?.x === x && heldStone?.fromBoard?.y === y;
           if (!isBeingHeld) {
-            const cx = padding + x * cellSize;
-            const cy = padding + y * cellSize;
+            const cx = padding + x * cellSizeX;
+            const cy = padding + y * cellSizeY;
             drawStone(ctx, cx, cy, stone, cellSize * 0.45);
           }
         }
       }
     }
 
-    // Draw red circle around last placed stone
+    // Last move indicator (rainbow ring)
     if (lastMove && board[lastMove.y][lastMove.x] !== null) {
-      const cx = padding + lastMove.x * cellSize;
-      const cy = padding + lastMove.y * cellSize;
-      ctx.strokeStyle = '#dc2626'; // Red color
+      const cx = padding + lastMove.x * cellSizeX;
+      const cy = padding + lastMove.y * cellSizeY;
+      ctx.strokeStyle = '#FF1493'; // Deep pink
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(cx, cy, cellSize * 0.35, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    // Highlight clickable stones when holding a stone (to show valid drop targets)
+    // Ghost stone preview
     if (heldStone && hoverPos && board[hoverPos.y][hoverPos.x] === null) {
-      // Show ghost stone where cursor is
-      const cx = padding + hoverPos.x * cellSize;
-      const cy = padding + hoverPos.y * cellSize;
+      const cx = padding + hoverPos.x * cellSizeX;
+      const cy = padding + hoverPos.y * cellSizeY;
       drawStone(ctx, cx, cy, heldStone.color, cellSize * 0.45, true);
     }
 
-    // Highlight stone under cursor when not holding anything
+    // Highlight stone under cursor
     if (!heldStone && hoverPos && board[hoverPos.y][hoverPos.x] !== null) {
-      const cx = padding + hoverPos.x * cellSize;
-      const cy = padding + hoverPos.y * cellSize;
-      ctx.strokeStyle = '#ff6b6b';
+      const cx = padding + hoverPos.x * cellSizeX;
+      const cy = padding + hoverPos.y * cellSizeY;
+      ctx.strokeStyle = '#FF69B4'; // Hot pink
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(cx, cy, cellSize * 0.5, 0, Math.PI * 2);
@@ -286,18 +296,17 @@ export default function GoBoard({
         drawStone(ctx, cx, cy, heldStone.color, cellSize * 0.45);
       }
     }
-  }, [board, size, canvasSize, heldStone, lastMove, hoverPos, mousePos, cellSize, padding, drawStone, getStarPoints]);
+  }, [board, width, height, canvasWidth, canvasHeight, heldStone, lastMove, hoverPos, mousePos, cellSize, cellSizeX, cellSizeY, padding, drawStone, getStarPoints]);
 
   // Handle resize
   useEffect(() => {
     const handleResize = () => {
-      const maxSize = getMaxBoardSize();
+      const newMaxSize = getMaxBoardSize();
       if (containerRef.current) {
         const containerWidth = containerRef.current.clientWidth;
-        const newSize = Math.min(containerWidth, maxSize);
-        setCanvasSize(newSize);
+        setMaxSize(Math.min(containerWidth, newMaxSize));
       } else {
-        setCanvasSize(maxSize);
+        setMaxSize(newMaxSize);
       }
     };
 
@@ -321,7 +330,6 @@ export default function GoBoard({
       const pos = canvasToBoard(e.clientX, e.clientY);
       setHoverPos(pos);
 
-      // Track mouse position for held stone
       const canvas = canvasRef.current;
       if (canvas) {
         const rect = canvas.getBoundingClientRect();
@@ -345,7 +353,7 @@ export default function GoBoard({
     [canvasToBoard, onBoardClick]
   );
 
-  // Handle touch start for mobile - show hover effect
+  // Handle touch start
   const handleTouchStart = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       e.preventDefault();
@@ -353,7 +361,6 @@ export default function GoBoard({
       const pos = canvasToBoard(touch.clientX, touch.clientY);
       setHoverPos(pos);
 
-      // Track touch position for held stone
       const canvas = canvasRef.current;
       if (canvas) {
         const rect = canvas.getBoundingClientRect();
@@ -366,7 +373,7 @@ export default function GoBoard({
     [canvasToBoard]
   );
 
-  // Handle touch move for dragging
+  // Handle touch move
   const handleTouchMove = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       e.preventDefault();
@@ -386,7 +393,7 @@ export default function GoBoard({
     [canvasToBoard]
   );
 
-  // Handle touch end - execute click
+  // Handle touch end
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       e.preventDefault();
@@ -400,12 +407,12 @@ export default function GoBoard({
   );
 
   return (
-    <div ref={containerRef} className="w-full mx-auto" style={{ maxWidth: canvasSize }}>
+    <div ref={containerRef} className="w-full mx-auto" style={{ maxWidth: canvasWidth }}>
       <div className="relative">
         <canvas
           ref={canvasRef}
-          width={canvasSize}
-          height={canvasSize}
+          width={canvasWidth}
+          height={canvasHeight}
           onClick={handleClick}
           onMouseMove={handleMouseMove}
           onMouseLeave={() => {

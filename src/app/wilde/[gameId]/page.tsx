@@ -2,26 +2,23 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import CrazyGoBoard, { CrazyHeldStone } from '@/components/CrazyGoBoard';
-import CrazyStonePot from '@/components/CrazyStonePot';
+import WildeGoBoard, { WildeHeldStone } from '@/components/WildeGoBoard';
+import WildeStonePot from '@/components/WildeStonePot';
 import { useDeviceType } from '@/hooks/useDeviceType';
+import { StonePot } from '@/lib/db/schema';
+import { createEmptyBoard } from '@/lib/wilde/colors';
 
-type CrazyStone = 0 | 1 | 2 | 3 | null;
-type CrazyBoard = CrazyStone[][];
+type WildeStone = number | null;
+type WildeBoard = WildeStone[][];
 type Position = { x: number; y: number };
 
-interface CrazyGameData {
+interface WildeGameData {
   id: string;
-  boardSize: number;
-  boardState: CrazyBoard;
-  blackPotCount: number;
-  whitePotCount: number;
-  brownPotCount: number;
-  greyPotCount: number;
-  blackReturned: number;
-  whiteReturned: number;
-  brownReturned: number;
-  greyReturned: number;
+  boardWidth: number;
+  boardHeight: number;
+  playerCount: number;
+  boardState: WildeBoard;
+  stonePots: StonePot[];
   lastMoveX: number | null;
   lastMoveY: number | null;
   koPointX: number | null;
@@ -42,19 +39,17 @@ interface ReplayAction {
   moveNumber: number;
 }
 
-// 4-player suicide check
-function wouldBeSuicide(board: CrazyBoard, x: number, y: number, color: CrazyStone): boolean {
-  if (color === null) return false;
-  const size = board.length;
-  const testBoard = board.map(row => [...row]) as CrazyBoard;
+// N-player suicide check
+function wouldBeSuicide(board: WildeBoard, x: number, y: number, color: number, width: number, height: number): boolean {
+  const testBoard = board.map(row => [...row]) as WildeBoard;
   testBoard[y][x] = color;
 
   const getAdjacent = (pos: Position): Position[] => {
     const adj: Position[] = [];
     if (pos.x > 0) adj.push({ x: pos.x - 1, y: pos.y });
-    if (pos.x < size - 1) adj.push({ x: pos.x + 1, y: pos.y });
+    if (pos.x < width - 1) adj.push({ x: pos.x + 1, y: pos.y });
     if (pos.y > 0) adj.push({ x: pos.x, y: pos.y - 1 });
-    if (pos.y < size - 1) adj.push({ x: pos.x, y: pos.y + 1 });
+    if (pos.y < height - 1) adj.push({ x: pos.x, y: pos.y + 1 });
     return adj;
   };
 
@@ -101,7 +96,7 @@ function wouldBeSuicide(board: CrazyBoard, x: number, y: number, color: CrazySto
   return countLiberties(placedGroup) === 0;
 }
 
-export default function CrazyGamePage({ params }: { params: Promise<{ gameId: string }> }) {
+export default function WildeGamePage({ params }: { params: Promise<{ gameId: string }> }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const deviceType = useDeviceType();
@@ -119,14 +114,14 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     });
   }, [params, searchParams]);
 
-  const [game, setGame] = useState<CrazyGameData | null>(null);
+  const [game, setGame] = useState<WildeGameData | null>(null);
   const [privateKey, setPrivateKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [keyInput, setKeyInput] = useState('');
   const [copied, setCopied] = useState(false);
-  const [heldStone, setHeldStone] = useState<CrazyHeldStone | null>(null);
+  const [heldStone, setHeldStone] = useState<WildeHeldStone | null>(null);
   const hasInitialized = useRef(false);
 
   // Replay state
@@ -134,13 +129,15 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
   const [replayActions, setReplayActions] = useState<ReplayAction[]>([]);
   const [replayIndex, setReplayIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [replayBoard, setReplayBoard] = useState<CrazyBoard | null>(null);
-  const [replayBoardSize, setReplayBoardSize] = useState(19);
+  const [replayBoard, setReplayBoard] = useState<WildeBoard | null>(null);
+  const [replayWidth, setReplayWidth] = useState(19);
+  const [replayHeight, setReplayHeight] = useState(19);
+  const [replayPlayerCount, setReplayPlayerCount] = useState(2);
   const replayIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchGame = useCallback(async (gId: string) => {
     try {
-      const res = await fetch(`/api/crazy/${gId}`);
+      const res = await fetch(`/api/wilde/${gId}`);
       if (!res.ok) {
         if (res.status === 404) setError('Game not found');
         else throw new Error('Failed to fetch game');
@@ -160,7 +157,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     hasInitialized.current = true;
 
     const initializeGame = async (key: string) => {
-      localStorage.setItem(`crazy_${gameId}_privateKey`, key);
+      localStorage.setItem(`wilde_${gameId}_privateKey`, key);
       setPrivateKey(key);
       await fetchGame(gameId);
       setShowKeyModal(false);
@@ -170,7 +167,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     if (urlKey) {
       initializeGame(urlKey);
     } else {
-      const storedKey = localStorage.getItem(`crazy_${gameId}_privateKey`);
+      const storedKey = localStorage.getItem(`wilde_${gameId}_privateKey`);
       if (storedKey) {
         initializeGame(storedKey);
       } else {
@@ -189,7 +186,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
   const performAction = async (
     actionType: 'place' | 'remove' | 'move',
     options: {
-      stoneColor?: 0 | 1 | 2 | 3;
+      stoneColor?: number;
       fromX?: number;
       fromY?: number;
       toX?: number;
@@ -199,7 +196,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     if (!privateKey || !game) return;
 
     try {
-      const res = await fetch(`/api/crazy/${gameId}/action`, {
+      const res = await fetch(`/api/wilde/${gameId}/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ privateKey, actionType, ...options }),
@@ -216,14 +213,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
       setGame(prev => prev ? {
         ...prev,
         boardState: data.boardState,
-        blackPotCount: data.blackPotCount,
-        whitePotCount: data.whitePotCount,
-        brownPotCount: data.brownPotCount,
-        greyPotCount: data.greyPotCount,
-        blackReturned: data.blackReturned,
-        whiteReturned: data.whiteReturned,
-        brownReturned: data.brownReturned,
-        greyReturned: data.greyReturned,
+        stonePots: data.stonePots,
         lastMoveX: data.lastMoveX,
         lastMoveY: data.lastMoveY,
         koPointX: data.koPointX,
@@ -240,7 +230,8 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     }
   };
 
-  const handlePotClick = (color: 0 | 1 | 2 | 3) => {
+  const handlePotClick = (color: number) => {
+    if (!game) return;
     if (heldStone) {
       if (heldStone.color === color) {
         if (heldStone.fromBoard) {
@@ -252,13 +243,8 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
         setHeldStone(null);
       }
     } else {
-      const potCounts = {
-        0: (game?.blackPotCount ?? 0) + (game?.blackReturned ?? 0),
-        1: (game?.whitePotCount ?? 0) + (game?.whiteReturned ?? 0),
-        2: (game?.brownPotCount ?? 0) + (game?.brownReturned ?? 0),
-        3: (game?.greyPotCount ?? 0) + (game?.greyReturned ?? 0),
-      };
-      if (potCounts[color] > 0) {
+      const pot = game.stonePots[color];
+      if (pot && pot.potCount + pot.returned > 0) {
         setHeldStone({ color });
       }
     }
@@ -271,9 +257,9 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     if (heldStone) {
       if (stoneAtPos === null) {
         if (heldStone.fromBoard) {
-          const testBoard = game.boardState.map(row => [...row]) as CrazyBoard;
+          const testBoard = game.boardState.map(row => [...row]) as WildeBoard;
           testBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
-          if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color)) return;
+          if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color, game.boardWidth, game.boardHeight)) return;
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
           performAction('move', {
             fromX: heldStone.fromBoard.x,
@@ -282,7 +268,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
             toY: pos.y,
           }).then(success => { if (success) setHeldStone(null); });
         } else {
-          if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color)) return;
+          if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color, game.boardWidth, game.boardHeight)) return;
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
           performAction('place', {
             stoneColor: heldStone.color,
@@ -300,7 +286,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
 
   const handleShare = () => {
     if (!privateKey || !gameId) return;
-    const shareUrl = `${window.location.origin}/crazy/${gameId}?key=${encodeURIComponent(privateKey)}`;
+    const shareUrl = `${window.location.origin}/wilde/${gameId}?key=${encodeURIComponent(privateKey)}`;
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -316,33 +302,28 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
         if (urlKey) key = urlKey;
       }
     } catch {}
-    localStorage.setItem(`crazy_${gameId}_privateKey`, key);
+    localStorage.setItem(`wilde_${gameId}_privateKey`, key);
     setPrivateKey(key);
     await fetchGame(gameId);
     setShowKeyModal(false);
   };
 
   // Replay functions
-  const createEmptyBoard = (size: number): CrazyBoard => {
-    return Array(size).fill(null).map(() => Array(size).fill(null));
-  };
-
-  const applyActionToBoard = (board: CrazyBoard, action: ReplayAction): CrazyBoard => {
-    const newBoard = board.map(row => [...row]) as CrazyBoard;
+  const applyActionToBoard = (board: WildeBoard, action: ReplayAction, width: number, height: number): WildeBoard => {
+    const newBoard = board.map(row => [...row]) as WildeBoard;
 
     if (action.actionType === 'place' && action.toX !== null && action.toY !== null) {
-      newBoard[action.toY][action.toX] = action.stoneColor as CrazyStone;
-      // Simple capture detection for replay
-      const size = board.length;
+      newBoard[action.toY][action.toX] = action.stoneColor;
+      // Simple capture detection
       const getAdjacent = (x: number, y: number): Position[] => {
         const adj: Position[] = [];
         if (x > 0) adj.push({ x: x - 1, y });
-        if (x < size - 1) adj.push({ x: x + 1, y });
+        if (x < width - 1) adj.push({ x: x + 1, y });
         if (y > 0) adj.push({ x, y: y - 1 });
-        if (y < size - 1) adj.push({ x, y: y + 1 });
+        if (y < height - 1) adj.push({ x, y: y + 1 });
         return adj;
       };
-      const getGroup = (start: Position, b: CrazyBoard): Position[] => {
+      const getGroup = (start: Position, b: WildeBoard): Position[] => {
         const c = b[start.y][start.x];
         if (c === null) return [];
         const group: Position[] = [];
@@ -361,7 +342,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
         }
         return group;
       };
-      const countLiberties = (group: Position[], b: CrazyBoard): number => {
+      const countLiberties = (group: Position[], b: WildeBoard): number => {
         const liberties = new Set<string>();
         for (const pos of group) {
           for (const a of getAdjacent(pos.x, pos.y)) {
@@ -372,8 +353,8 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
       };
       // Check for captures
       const visited = new Set<string>();
-      for (let y = 0; y < size; y++) {
-        for (let x = 0; x < size; x++) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
           if (newBoard[y][x] === null) continue;
           const key = `${x},${y}`;
           if (visited.has(key)) continue;
@@ -398,7 +379,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
   const startReplay = async () => {
     if (!gameId) return;
     try {
-      const res = await fetch(`/api/crazy/${gameId}/replay`);
+      const res = await fetch(`/api/wilde/${gameId}/replay`);
       if (!res.ok) {
         setError('No moves to replay');
         setTimeout(() => setError(null), 3000);
@@ -411,8 +392,10 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
         return;
       }
       setReplayActions(data.actions);
-      setReplayBoardSize(data.boardSize);
-      setReplayBoard(createEmptyBoard(data.boardSize));
+      setReplayWidth(data.boardWidth);
+      setReplayHeight(data.boardHeight);
+      setReplayPlayerCount(data.playerCount);
+      setReplayBoard(createEmptyBoard(data.boardWidth, data.boardHeight));
       setReplayIndex(0);
       setIsReplayMode(true);
       setIsPlaying(false);
@@ -437,18 +420,17 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
 
   const stepForward = useCallback(() => {
     if (replayIndex < replayActions.length && replayBoard) {
-      const newBoard = applyActionToBoard(replayBoard, replayActions[replayIndex]);
+      const newBoard = applyActionToBoard(replayBoard, replayActions[replayIndex], replayWidth, replayHeight);
       setReplayBoard(newBoard);
       setReplayIndex(prev => prev + 1);
     }
-  }, [replayIndex, replayActions, replayBoard]);
+  }, [replayIndex, replayActions, replayBoard, replayWidth, replayHeight]);
 
   const stepBackward = () => {
     if (replayIndex > 0) {
-      // Rebuild board from start to index - 1
-      let board = createEmptyBoard(replayBoardSize);
+      let board = createEmptyBoard(replayWidth, replayHeight);
       for (let i = 0; i < replayIndex - 1; i++) {
-        board = applyActionToBoard(board, replayActions[i]);
+        board = applyActionToBoard(board, replayActions[i], replayWidth, replayHeight);
       }
       setReplayBoard(board);
       setReplayIndex(prev => prev - 1);
@@ -467,12 +449,11 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     }
   };
 
-  // Auto-play effect (2x speed = 500ms per move)
   useEffect(() => {
     if (isPlaying && replayIndex < replayActions.length) {
       replayIntervalRef.current = setTimeout(() => {
         stepForward();
-      }, 500); // 2x speed
+      }, 500);
     } else if (isPlaying && replayIndex >= replayActions.length) {
       setIsPlaying(false);
     }
@@ -486,7 +467,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
   const clearBoard = async () => {
     if (!privateKey || !gameId) return;
     try {
-      const res = await fetch(`/api/crazy/${gameId}/clear`, {
+      const res = await fetch(`/api/wilde/${gameId}/clear`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ privateKey }),
@@ -501,14 +482,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
       setGame(prev => prev ? {
         ...prev,
         boardState: data.boardState,
-        blackPotCount: data.blackPotCount,
-        whitePotCount: data.whitePotCount,
-        brownPotCount: data.brownPotCount,
-        greyPotCount: data.greyPotCount,
-        blackReturned: data.blackReturned,
-        whiteReturned: data.whiteReturned,
-        brownReturned: data.brownReturned,
-        greyReturned: data.greyReturned,
+        stonePots: data.stonePots,
         lastMoveX: data.lastMoveX,
         lastMoveY: data.lastMoveY,
         koPointX: data.koPointX,
@@ -525,22 +499,22 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
 
   if (showKeyModal && !privateKey) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-purple-900 dark:via-pink-900 dark:to-blue-900 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-md w-full">
-          <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">Access Denied</h2>
+          <h2 className="text-2xl font-bold text-purple-800 dark:text-purple-100 mb-6">Access Denied</h2>
           <input
             type="text"
             value={keyInput}
             onChange={(e) => setKeyInput(e.target.value)}
             placeholder="Paste Board URL to Access"
-            className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4"
+            className="w-full px-4 py-3 rounded-lg border border-purple-200 dark:border-purple-600 bg-white dark:bg-zinc-700 text-purple-800 dark:text-purple-100 placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-pink-500 mb-4"
             onKeyDown={(e) => e.key === 'Enter' && handleKeySubmit()}
           />
           <div className="flex gap-3">
-            <button onClick={handleKeySubmit} className="flex-1 py-3 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-colors">
+            <button onClick={handleKeySubmit} className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-lg font-semibold hover:from-pink-600 hover:to-purple-600 transition-colors">
               Join Board
             </button>
-            <button onClick={() => router.push('/crazy')} className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-lg font-semibold hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors">
+            <button onClick={() => router.push('/wilde')} className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-lg font-semibold hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors">
               Home
             </button>
           </div>
@@ -551,18 +525,18 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 flex items-center justify-center">
-        <div className="text-xl text-zinc-600 dark:text-zinc-400">Loading board...</div>
+      <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-purple-900 dark:via-pink-900 dark:to-blue-900 flex items-center justify-center">
+        <div className="text-xl text-purple-600 dark:text-purple-300">Loading board...</div>
       </div>
     );
   }
 
   if (error && !game) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-purple-900 dark:via-pink-900 dark:to-blue-900 flex items-center justify-center">
         <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-md text-center">
           <div className="text-red-500 text-xl mb-4">{error}</div>
-          <button onClick={() => router.push('/crazy')} className="px-6 py-3 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-800 rounded-lg font-semibold hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors">
+          <button onClick={() => router.push('/wilde')} className="px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-lg font-semibold">
             Home
           </button>
         </div>
@@ -572,75 +546,78 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
 
   if (!game) return null;
 
-  // Top buttons for CrazyGoBoard perimeter - black bold text (same as normal Go)
+  // Top buttons for board perimeter
   const topButtons = isReplayMode ? (
     <>
-      <button
-        onClick={() => router.push('/crazy')}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
+      <button onClick={() => router.push('/wilde')} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
         Home
       </button>
-      <button
-        onClick={exitReplay}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
+      <button onClick={exitReplay} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
         Exit
       </button>
-      <button
-        onClick={handleShare}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
+      <button onClick={handleShare} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
         {copied ? 'COPIED!' : 'SHARE'}
       </button>
     </>
   ) : (
     <>
-      <button
-        onClick={() => router.push('/crazy')}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
+      <button onClick={() => router.push('/wilde')} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
         Home
       </button>
-      <button
-        onClick={startReplay}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
+      <button onClick={startReplay} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
         REPLAY
       </button>
-      <button
-        onClick={clearBoard}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
+      <button onClick={clearBoard} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
         CLEAR
       </button>
-      <button
-        onClick={handleShare}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
+      <button onClick={handleShare} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
         {copied ? 'COPIED!' : 'SHARE'}
       </button>
     </>
   );
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800">
-      <div className="container mx-auto px-2 sm:px-4 pt-12 sm:pt-16 pb-4 sm:pb-8">
-        {/* Buttons are now rendered inside CrazyGoBoard perimeter */}
+  // Render pots based on player count
+  const renderPots = (small: boolean = false) => {
+    const pots = [];
+    for (let i = 0; i < game.playerCount; i++) {
+      const pot = game.stonePots[i] || { potCount: 0, returned: 0 };
+      pots.push(
+        <WildeStonePot
+          key={i}
+          color={i}
+          count={pot.potCount}
+          returned={pot.returned}
+          isHoldingStone={heldStone !== null}
+          heldStoneColor={heldStone?.color ?? null}
+          isCurrentTurn={game.currentTurn === i}
+          small={small}
+          onClick={() => handlePotClick(i)}
+        />
+      );
+    }
+    return pots;
+  };
 
-        {/* Replay Controls - shown below board when in replay mode */}
+  // Split pots for desktop layout
+  const leftPots = renderPots().slice(0, Math.ceil(game.playerCount / 2));
+  const rightPots = renderPots().slice(Math.ceil(game.playerCount / 2));
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-purple-900 dark:via-pink-900 dark:to-blue-900">
+      <div className="container mx-auto px-2 sm:px-4 pt-12 sm:pt-16 pb-4 sm:pb-8">
+        {/* Replay Controls */}
         {isReplayMode && (
           <div className="flex items-center justify-center gap-4 mb-4">
-            <button onClick={stepBackward} disabled={replayIndex === 0} className="px-3 py-2 bg-zinc-700 text-white rounded-lg font-medium hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
+            <button onClick={stepBackward} disabled={replayIndex === 0} className="px-3 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
               &lt; Back
             </button>
-            <button onClick={togglePlay} className="px-4 py-2 bg-zinc-800 text-white rounded-lg font-medium hover:bg-zinc-700 transition-colors text-sm min-w-[80px]">
+            <button onClick={togglePlay} className="px-4 py-2 bg-pink-500 text-white rounded-lg font-medium hover:bg-pink-400 transition-colors text-sm min-w-[80px]">
               {isPlaying ? 'Pause' : 'Play'}
             </button>
-            <button onClick={stepForward} disabled={replayIndex >= replayActions.length} className="px-3 py-2 bg-zinc-700 text-white rounded-lg font-medium hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
+            <button onClick={stepForward} disabled={replayIndex >= replayActions.length} className="px-3 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
               Next &gt;
             </button>
-            <span className="text-zinc-600 dark:text-zinc-400 text-sm">
+            <span className="text-purple-600 dark:text-purple-300 text-sm">
               {replayIndex} / {replayActions.length}
             </span>
           </div>
@@ -652,13 +629,14 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           </div>
         )}
 
-        {/* Game Board with 4 Stone Pots */}
+        {/* Game Board with Stone Pots */}
         {isReplayMode && replayBoard ? (
-          /* Replay Mode - just show board */
           <div className="flex justify-center">
-            <CrazyGoBoard
+            <WildeGoBoard
               board={replayBoard}
-              size={replayBoardSize}
+              width={replayWidth}
+              height={replayHeight}
+              playerCount={replayPlayerCount}
               heldStone={null}
               lastMove={null}
               onBoardClick={() => {}}
@@ -666,69 +644,43 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
             />
           </div>
         ) : isDesktop ? (
-          /* Desktop: 2 pots on each side */
           <div className="relative flex items-center justify-center">
             <div className="relative">
-              <CrazyGoBoard
+              <WildeGoBoard
                 board={game.boardState}
-                size={game.boardSize}
+                width={game.boardWidth}
+                height={game.boardHeight}
+                playerCount={game.playerCount}
                 heldStone={heldStone}
                 lastMove={game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null}
                 onBoardClick={handleBoardClick}
                 topButtons={topButtons}
               />
-              {/* Left pots (White & Brown) */}
-              <div className="absolute top-1/2 -translate-y-1/2 flex flex-col gap-4" style={{ right: 'calc(100% + 20px)' }}>
-                <CrazyStonePot color={1} count={game.whitePotCount} returned={game.whiteReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 1} onClick={() => handlePotClick(1)} />
-                <CrazyStonePot color={2} count={game.brownPotCount} returned={game.brownReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 2} onClick={() => handlePotClick(2)} />
+              {/* Left pots */}
+              <div className="absolute top-1/2 -translate-y-1/2 flex flex-col gap-3" style={{ right: 'calc(100% + 20px)' }}>
+                {leftPots}
               </div>
-              {/* Right pots (Black & Grey) */}
-              <div className="absolute top-1/2 -translate-y-1/2 flex flex-col gap-4" style={{ left: 'calc(100% + 20px)' }}>
-                <CrazyStonePot color={0} count={game.blackPotCount} returned={game.blackReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 0} onClick={() => handlePotClick(0)} />
-                <CrazyStonePot color={3} count={game.greyPotCount} returned={game.greyReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 3} onClick={() => handlePotClick(3)} />
-              </div>
-            </div>
-          </div>
-        ) : deviceType === 'tablet' ? (
-          /* Tablet: Pots on top and bottom */
-          <div className="relative flex flex-col items-center">
-            <div className="relative">
-              {/* Top pots (White & Brown) */}
-              <div className="absolute left-1/2 -translate-x-1/2 flex gap-4" style={{ bottom: 'calc(100% + 20px)' }}>
-                <CrazyStonePot color={1} count={game.whitePotCount} returned={game.whiteReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 1} onClick={() => handlePotClick(1)} />
-                <CrazyStonePot color={2} count={game.brownPotCount} returned={game.brownReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 2} onClick={() => handlePotClick(2)} />
-              </div>
-              <CrazyGoBoard
-                board={game.boardState}
-                size={game.boardSize}
-                heldStone={heldStone}
-                lastMove={game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null}
-                onBoardClick={handleBoardClick}
-                topButtons={topButtons}
-              />
-              {/* Bottom pots (Black & Grey) */}
-              <div className="absolute left-1/2 -translate-x-1/2 flex gap-4" style={{ top: 'calc(100% + 20px)' }}>
-                <CrazyStonePot color={0} count={game.blackPotCount} returned={game.blackReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 0} onClick={() => handlePotClick(0)} />
-                <CrazyStonePot color={3} count={game.greyPotCount} returned={game.greyReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 3} onClick={() => handlePotClick(3)} />
+              {/* Right pots */}
+              <div className="absolute top-1/2 -translate-y-1/2 flex flex-col gap-3" style={{ left: 'calc(100% + 20px)' }}>
+                {rightPots}
               </div>
             </div>
           </div>
         ) : (
-          /* Mobile: All 4 pots at bottom */
           <div className="flex flex-col items-center">
-            <CrazyGoBoard
+            <WildeGoBoard
               board={game.boardState}
-              size={game.boardSize}
+              width={game.boardWidth}
+              height={game.boardHeight}
+              playerCount={game.playerCount}
               heldStone={heldStone}
               lastMove={game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null}
               onBoardClick={handleBoardClick}
               topButtons={topButtons}
             />
-            <div className="flex gap-3 mt-4">
-              <CrazyStonePot color={0} count={game.blackPotCount} returned={game.blackReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 0} small={true} onClick={() => handlePotClick(0)} />
-              <CrazyStonePot color={1} count={game.whitePotCount} returned={game.whiteReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 1} small={true} onClick={() => handlePotClick(1)} />
-              <CrazyStonePot color={2} count={game.brownPotCount} returned={game.brownReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 2} small={true} onClick={() => handlePotClick(2)} />
-              <CrazyStonePot color={3} count={game.greyPotCount} returned={game.greyReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 3} small={true} onClick={() => handlePotClick(3)} />
+            {/* All pots at bottom in rows */}
+            <div className="flex flex-wrap justify-center gap-2 mt-4 max-w-[400px]">
+              {renderPots(true)}
             </div>
           </div>
         )}
