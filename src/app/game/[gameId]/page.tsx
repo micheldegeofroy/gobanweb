@@ -654,22 +654,10 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
               </div>
             </div>
           </div>
-        ) : deviceType === 'tablet' ? (
-          /* Tablet: Pots on top and bottom */
-          <div className="relative flex flex-col items-center">
+        ) : isTablet ? (
+          /* Tablet: Pots on left and right sides like desktop */
+          <div className="relative flex items-center justify-center">
             <div className="relative">
-              {/* Top pot (White) */}
-              <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: 'calc(100% + 20px)' }}>
-                <StonePot
-                  color={1}
-                  count={game.whitePotCount}
-                  returned={game.whiteReturned}
-                  isHoldingStone={heldStone !== null}
-                  heldStoneColor={heldStone?.color ?? null}
-                  rotated={true}
-                  onClick={() => handlePotClick(1)}
-                />
-              </div>
               <GoBoard
                 board={isReplaying && replayBoard ? replayBoard : game.boardState}
                 size={game.boardSize}
@@ -680,8 +668,19 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 onBoardClick={isReplaying ? () => {} : handleBoardClick}
                 topButtons={topButtons}
               />
-              {/* Bottom pot (Black) */}
-              <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 'calc(100% + 20px)' }}>
+              {/* Left pot (White) */}
+              <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 'calc(100% + 16px)' }}>
+                <StonePot
+                  color={1}
+                  count={game.whitePotCount}
+                  returned={game.whiteReturned}
+                  isHoldingStone={heldStone !== null}
+                  heldStoneColor={heldStone?.color ?? null}
+                  onClick={() => handlePotClick(1)}
+                />
+              </div>
+              {/* Right pot (Black) */}
+              <div className="absolute top-1/2 -translate-y-1/2" style={{ left: 'calc(100% + 16px)' }}>
                 <StonePot
                   color={0}
                   count={game.blackPotCount}
