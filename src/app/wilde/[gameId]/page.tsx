@@ -101,6 +101,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
   const searchParams = useSearchParams();
   const deviceType = useDeviceType();
   const isDesktop = deviceType === 'desktop';
+  const isTablet = deviceType === 'tablet';
 
   const [gameId, setGameId] = useState<string | null>(null);
   const [urlKey, setUrlKey] = useState<string | null>(null);
@@ -666,18 +667,39 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
               </div>
             </div>
           </div>
+        ) : isTablet ? (
+          <div className="flex flex-col items-center justify-center w-full">
+            <div className="flex justify-center w-full">
+              <WildeGoBoard
+                board={game.boardState}
+                width={game.boardWidth}
+                height={game.boardHeight}
+                playerCount={game.playerCount}
+                heldStone={heldStone}
+                lastMove={game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null}
+                onBoardClick={handleBoardClick}
+                topButtons={topButtons}
+              />
+            </div>
+            {/* All pots at bottom in rows */}
+            <div className="flex flex-wrap justify-center gap-3 mt-6">
+              {renderPots(false)}
+            </div>
+          </div>
         ) : (
-          <div className="flex flex-col items-center">
-            <WildeGoBoard
-              board={game.boardState}
-              width={game.boardWidth}
-              height={game.boardHeight}
-              playerCount={game.playerCount}
-              heldStone={heldStone}
-              lastMove={game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null}
-              onBoardClick={handleBoardClick}
-              topButtons={topButtons}
-            />
+          <div className="flex flex-col items-center w-full">
+            <div className="flex justify-center w-full">
+              <WildeGoBoard
+                board={game.boardState}
+                width={game.boardWidth}
+                height={game.boardHeight}
+                playerCount={game.playerCount}
+                heldStone={heldStone}
+                lastMove={game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null}
+                onBoardClick={handleBoardClick}
+                topButtons={topButtons}
+              />
+            </div>
             {/* All pots at bottom in rows */}
             <div className="flex flex-wrap justify-center gap-2 mt-4 max-w-[400px]">
               {renderPots(true)}
