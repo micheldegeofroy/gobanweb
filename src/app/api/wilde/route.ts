@@ -3,19 +3,47 @@ import { db } from '@/lib/db';
 import { wildeGames } from '@/lib/db/schema';
 import { generateKeyPair, generateGameId } from '@/lib/crypto/keys';
 import { createEmptyBoard, initializeStonePots } from '@/lib/wilde/colors';
+import { lt } from 'drizzle-orm';
 
 // POST /api/wilde - Create a new Wilde Go game
 export async function POST(request: NextRequest) {
   try {
+    // Clean up games older than 1 year (runs in background, don't await)
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    db.delete(wildeGames).where(lt(wildeGames.createdAt, oneYearAgo)).catch((error) => {
+      console.error('Background cleanup failed for wilde games:', error);
+    });
+
     const body = await request.json();
     const boardWidth = body.boardWidth ?? 19;
     const boardHeight = body.boardHeight ?? 19;
     const playerCount = body.playerCount ?? 2;
+    const stonesPerPlayer = body.stonesPerPlayer ?? null; // null means auto-calculate
+    const pacmanMode = body.pacmanMode ?? false;
+    const customHues = body.customHues ?? null;
+
+    // Validate board dimensions type
+    if (typeof boardWidth !== 'number' || !Number.isInteger(boardWidth) ||
+        typeof boardHeight !== 'number' || !Number.isInteger(boardHeight)) {
+      return NextResponse.json(
+        { error: 'Invalid board dimensions. Width and height must be integers.' },
+        { status: 400 }
+      );
+    }
 
     // Validate board dimensions (3-20)
     if (boardWidth < 3 || boardWidth > 20 || boardHeight < 3 || boardHeight > 20) {
       return NextResponse.json(
         { error: 'Invalid board dimensions. Width and height must be 3-20.' },
+        { status: 400 }
+      );
+    }
+
+    // Validate player count type
+    if (typeof playerCount !== 'number' || !Number.isInteger(playerCount)) {
+      return NextResponse.json(
+        { error: 'Invalid player count. Must be an integer.' },
         { status: 400 }
       );
     }
@@ -34,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // Create empty board and initialize stone pots
     const emptyBoard = createEmptyBoard(boardWidth, boardHeight);
-    const stonePots = initializeStonePots(boardWidth, boardHeight, playerCount);
+    const stonePots = initializeStonePots(boardWidth, boardHeight, playerCount, stonesPerPlayer);
 
     // Insert game into database
     await db.insert(wildeGames).values({
@@ -45,6 +73,8 @@ export async function POST(request: NextRequest) {
       playerCount,
       boardState: emptyBoard,
       stonePots,
+      pacmanMode,
+      customHues,
       connectedUsers: 0,
     });
 
@@ -56,6 +86,7 @@ export async function POST(request: NextRequest) {
       boardWidth,
       boardHeight,
       playerCount,
+      pacmanMode,
     });
   } catch (error) {
     console.error('Error creating Wilde game:', error);

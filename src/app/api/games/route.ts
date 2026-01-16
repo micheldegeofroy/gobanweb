@@ -6,8 +6,8 @@ import { lt } from 'drizzle-orm';
 
 // Standard stone counts based on board size
 function getStoneCount(boardSize: number): { black: number; white: number } {
-  if (boardSize === 9) return { black: 40, white: 40 };
-  if (boardSize === 13) return { black: 80, white: 80 };
+  if (boardSize === 9) return { black: 41, white: 40 };
+  if (boardSize === 13) return { black: 85, white: 84 };
   return { black: 181, white: 180 }; // 19x19
 }
 
@@ -17,12 +17,21 @@ export async function POST(request: NextRequest) {
     // Clean up games older than 1 year (runs in background, don't await)
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    db.delete(games).where(lt(games.createdAt, oneYearAgo)).catch(() => {});
+    db.delete(games).where(lt(games.createdAt, oneYearAgo)).catch((error) => {
+      console.error('Background cleanup failed for games:', error);
+    });
 
     const body = await request.json();
-    const boardSize = body.boardSize || 19;
+    const boardSize = body.boardSize ?? 19;
 
-    // Validate board size
+    // Validate board size type and value
+    if (typeof boardSize !== 'number' || !Number.isInteger(boardSize)) {
+      return NextResponse.json(
+        { error: 'Invalid board size. Must be an integer.' },
+        { status: 400 }
+      );
+    }
+
     if (![9, 13, 19].includes(boardSize)) {
       return NextResponse.json(
         { error: 'Invalid board size. Must be 9, 13, or 19.' },

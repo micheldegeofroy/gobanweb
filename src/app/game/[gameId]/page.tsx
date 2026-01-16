@@ -26,8 +26,10 @@ interface GameData {
   boardState: Board;
   blackPotCount: number;
   whitePotCount: number;
-  blackReturned: number;
-  whiteReturned: number;
+  blackCaptured: number;
+  whiteCaptured: number;
+  blackOnBoard: number;
+  whiteOnBoard: number;
   lastMoveX: number | null;
   lastMoveY: number | null;
   koPointX: number | null;
@@ -179,8 +181,10 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         boardState: data.boardState,
         blackPotCount: data.blackPotCount,
         whitePotCount: data.whitePotCount,
-        blackReturned: data.blackReturned,
-        whiteReturned: data.whiteReturned,
+        blackCaptured: data.blackCaptured,
+        whiteCaptured: data.whiteCaptured,
+        blackOnBoard: data.blackOnBoard,
+        whiteOnBoard: data.whiteOnBoard,
         lastMoveX: data.lastMoveX,
         lastMoveY: data.lastMoveY,
         koPointX: data.koPointX,
@@ -212,11 +216,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         setHeldStone(null);
       }
     } else {
-      // Pick up a stone from the pot (check total: original + returned)
+      // Pick up a stone from the pot if available
       const potCount = color === 0 ? game?.blackPotCount : game?.whitePotCount;
-      const returned = color === 0 ? game?.blackReturned : game?.whiteReturned;
-      const total = (potCount ?? 0) + (returned ?? 0);
-      if (total > 0) {
+      if ((potCount ?? 0) > 0) {
         setHeldStone({ color });
       }
     }
@@ -246,13 +248,16 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           newBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
           newBoard[pos.y][pos.x] = heldStone.color;
           const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured } = detectAndRemoveCaptures(newBoard);
+          // Update captured counts: blackCaptured stones go to white's score, whiteCaptured to black's
           setGame(prev => prev ? {
             ...prev,
             boardState: boardAfterCaptures,
             lastMoveX: pos.x,
             lastMoveY: pos.y,
-            blackReturned: prev.blackReturned + blackCaptured,
-            whiteReturned: prev.whiteReturned + whiteCaptured,
+            blackCaptured: prev.blackCaptured + whiteCaptured,  // Black captured white stones
+            whiteCaptured: prev.whiteCaptured + blackCaptured,  // White captured black stones
+            blackOnBoard: prev.blackOnBoard - blackCaptured,    // Black stones removed from board
+            whiteOnBoard: prev.whiteOnBoard - whiteCaptured,    // White stones removed from board
           } : null);
           setHeldStone(null);
           // Send to server in background
@@ -274,17 +279,18 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           const newBoard = game.boardState.map(row => [...row]);
           newBoard[pos.y][pos.x] = heldStone.color;
           const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured } = detectAndRemoveCaptures(newBoard);
-          const newPotCount = heldStone.color === 0
-            ? { blackPotCount: game.blackPotCount - 1 }
-            : { whitePotCount: game.whitePotCount - 1 };
+          // Update pot count, onBoard count, and captured counts
           setGame(prev => prev ? {
             ...prev,
             boardState: boardAfterCaptures,
             lastMoveX: pos.x,
             lastMoveY: pos.y,
-            blackReturned: prev.blackReturned + blackCaptured,
-            whiteReturned: prev.whiteReturned + whiteCaptured,
-            ...newPotCount
+            blackPotCount: prev.blackPotCount - (heldStone.color === 0 ? 1 : 0),
+            whitePotCount: prev.whitePotCount - (heldStone.color === 1 ? 1 : 0),
+            blackOnBoard: prev.blackOnBoard + (heldStone.color === 0 ? 1 : 0) - blackCaptured,
+            whiteOnBoard: prev.whiteOnBoard + (heldStone.color === 1 ? 1 : 0) - whiteCaptured,
+            blackCaptured: prev.blackCaptured + whiteCaptured,  // Black captured white stones
+            whiteCaptured: prev.whiteCaptured + blackCaptured,  // White captured black stones
           } : null);
           setHeldStone(null);
           // Send to server in background
@@ -516,8 +522,10 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         boardState: data.boardState,
         blackPotCount: data.blackPotCount,
         whitePotCount: data.whitePotCount,
-        blackReturned: data.blackReturned,
-        whiteReturned: data.whiteReturned,
+        blackCaptured: data.blackCaptured,
+        whiteCaptured: data.whiteCaptured,
+        blackOnBoard: data.blackOnBoard,
+        whiteOnBoard: data.whiteOnBoard,
         lastMoveX: data.lastMoveX,
         lastMoveY: data.lastMoveY,
         koPointX: data.koPointX,
@@ -527,6 +535,43 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     } catch (err) {
       console.error('Error clearing board:', err);
       setError('Failed to clear board');
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+
+  const undoMove = async () => {
+    if (!privateKey || !gameId) return;
+    try {
+      const res = await fetch(`/api/games/${gameId}/undo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ privateKey }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to undo');
+        setTimeout(() => setError(null), 3000);
+        return;
+      }
+      const data = await res.json();
+      setGame(prev => prev ? {
+        ...prev,
+        boardState: data.boardState,
+        blackPotCount: data.blackPotCount,
+        whitePotCount: data.whitePotCount,
+        blackCaptured: data.blackCaptured,
+        whiteCaptured: data.whiteCaptured,
+        blackOnBoard: data.blackOnBoard,
+        whiteOnBoard: data.whiteOnBoard,
+        lastMoveX: data.lastMoveX,
+        lastMoveY: data.lastMoveY,
+        koPointX: data.koPointX,
+        koPointY: data.koPointY,
+      } : null);
+      setHeldStone(null);
+    } catch (err) {
+      console.error('Error undoing move:', err);
+      setError('Failed to undo');
       setTimeout(() => setError(null), 3000);
     }
   };
@@ -648,6 +693,12 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         CLEAR
       </button>
       <button
+        onClick={undoMove}
+        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
+      >
+        UNDO
+      </button>
+      <button
         onClick={handleShare}
         className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
       >
@@ -687,8 +738,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
               <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 'calc(100% + 20px)' }}>
                 <StonePot
                   color={1}
-                  count={game.whitePotCount}
-                  returned={game.whiteReturned}
+                  potCount={game.whitePotCount}
+                  captured={game.whiteCaptured}
+                  onBoard={game.whiteOnBoard}
                   isHoldingStone={heldStone !== null}
                   heldStoneColor={heldStone?.color ?? null}
                   onClick={() => handlePotClick(1)}
@@ -698,8 +750,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
               <div className="absolute top-1/2 -translate-y-1/2" style={{ left: 'calc(100% + 20px)' }}>
                 <StonePot
                   color={0}
-                  count={game.blackPotCount}
-                  returned={game.blackReturned}
+                  potCount={game.blackPotCount}
+                  captured={game.blackCaptured}
+                  onBoard={game.blackOnBoard}
                   isHoldingStone={heldStone !== null}
                   heldStoneColor={heldStone?.color ?? null}
                   onClick={() => handlePotClick(0)}
@@ -714,8 +767,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             <div className="flex justify-center mb-4">
               <StonePot
                 color={1}
-                count={game.whitePotCount}
-                returned={game.whiteReturned}
+                potCount={game.whitePotCount}
+                captured={game.whiteCaptured}
+                onBoard={game.whiteOnBoard}
                 isHoldingStone={heldStone !== null}
                 heldStoneColor={heldStone?.color ?? null}
                 rotated={true}
@@ -735,6 +789,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   <button onClick={handleShare} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
                     {copied ? 'COPIED!' : 'SHARE'}
                   </button>
+                  <button onClick={undoMove} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                    UNDO
+                  </button>
                   <button onClick={clearBoard} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
                     CLEAR
                   </button>
@@ -752,8 +809,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             <div className="flex justify-center mt-4">
               <StonePot
                 color={0}
-                count={game.blackPotCount}
-                returned={game.blackReturned}
+                potCount={game.blackPotCount}
+                captured={game.blackCaptured}
+                onBoard={game.blackOnBoard}
                 isHoldingStone={heldStone !== null}
                 heldStoneColor={heldStone?.color ?? null}
                 onClick={() => handlePotClick(0)}
@@ -777,8 +835,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             <div className="flex gap-4 mt-4">
               <StonePot
                 color={1}
-                count={game.whitePotCount}
-                returned={game.whiteReturned}
+                potCount={game.whitePotCount}
+                captured={game.whiteCaptured}
+                onBoard={game.whiteOnBoard}
                 isHoldingStone={heldStone !== null}
                 heldStoneColor={heldStone?.color ?? null}
                 small={true}
@@ -786,8 +845,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
               />
               <StonePot
                 color={0}
-                count={game.blackPotCount}
-                returned={game.blackReturned}
+                potCount={game.blackPotCount}
+                captured={game.blackCaptured}
+                onBoard={game.blackOnBoard}
                 isHoldingStone={heldStone !== null}
                 heldStoneColor={heldStone?.color ?? null}
                 small={true}

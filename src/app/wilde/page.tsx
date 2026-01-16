@@ -1,16 +1,111 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { WILDE_COLORS } from '@/lib/wilde/colors';
+
+// Calculate default stones per player based on grid and player count
+function calculateDefaultStones(width: number, height: number, players: number): number {
+  return Math.floor((width * height) / players);
+}
 
 export default function WildeGoHome() {
   const router = useRouter();
   const [playerCount, setPlayerCount] = useState(4);
   const [boardWidth, setBoardWidth] = useState(13);
   const [boardHeight, setBoardHeight] = useState(13);
+  const [stonesPerPlayer, setStonesPerPlayer] = useState(() =>
+    calculateDefaultStones(13, 13, 4)
+  );
+  const [hasManualOverride, setHasManualOverride] = useState(false);
+  const [pacmanMode, setPacmanMode] = useState(false);
+  const [customHues, setCustomHues] = useState<Record<number, number>>({}); // Player index -> hue offset
+  const [selectedColorIndex, setSelectedColorIndex] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
+
+  // Calculate the default stones value for display
+  const defaultStones = calculateDefaultStones(boardWidth, boardHeight, playerCount);
+
+  // Auto-update stones when grid or player count changes (unless manually overridden)
+  useEffect(() => {
+    if (!hasManualOverride) {
+      setStonesPerPlayer(defaultStones);
+    }
+  }, [boardWidth, boardHeight, playerCount, defaultStones, hasManualOverride]);
+
+  // Handle player count change
+  const handlePlayerCountChange = (n: number) => {
+    setPlayerCount(n);
+    // Clear manual override when player count changes
+    setHasManualOverride(false);
+  };
+
+  // Handle board width change
+  const handleBoardWidthChange = (width: number) => {
+    setBoardWidth(width);
+    // Clear manual override when grid changes
+    setHasManualOverride(false);
+  };
+
+  // Handle board height change
+  const handleBoardHeightChange = (height: number) => {
+    setBoardHeight(height);
+    // Clear manual override when grid changes
+    setHasManualOverride(false);
+  };
+
+  // Handle manual stones override
+  const handleStonesChange = (stones: number) => {
+    setStonesPerPlayer(stones);
+    setHasManualOverride(true);
+  };
+
+  // Get adjusted color with hue shift
+  const getAdjustedColor = (baseHex: string, hueOffset: number): string => {
+    // Convert hex to HSL, shift hue, convert back
+    const r = parseInt(baseHex.slice(1, 3), 16) / 255;
+    const g = parseInt(baseHex.slice(3, 5), 16) / 255;
+    const b = parseInt(baseHex.slice(5, 7), 16) / 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    let h = 0;
+    let s = 0;
+
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+        case g: h = ((b - r) / d + 2) / 6; break;
+        case b: h = ((r - g) / d + 4) / 6; break;
+      }
+    }
+
+    // Apply hue offset
+    h = (h + hueOffset / 360) % 1;
+    if (h < 0) h += 1;
+
+    // Convert back to RGB
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const newR = Math.round(hue2rgb(p, q, h + 1/3) * 255);
+    const newG = Math.round(hue2rgb(p, q, h) * 255);
+    const newB = Math.round(hue2rgb(p, q, h - 1/3) * 255);
+
+    return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+  };
 
   const createGame = async () => {
     setIsCreating(true);
@@ -20,7 +115,7 @@ export default function WildeGoHome() {
       const res = await fetch('/api/wilde', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boardWidth, boardHeight, playerCount }),
+        body: JSON.stringify({ boardWidth, boardHeight, playerCount, stonesPerPlayer, pacmanMode, customHues }),
       });
 
       if (!res.ok) {
@@ -68,7 +163,7 @@ export default function WildeGoHome() {
                 {[2, 3, 4, 5, 6, 7, 8].map((n) => (
                   <button
                     key={n}
-                    onClick={() => setPlayerCount(n)}
+                    onClick={() => handlePlayerCountChange(n)}
                     className={`w-10 h-10 rounded-full font-bold transition-all ${
                       playerCount === n
                         ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg scale-110'
@@ -81,21 +176,80 @@ export default function WildeGoHome() {
               </div>
             </div>
 
-            {/* Color Preview */}
+            {/* Color Preview - Click to customize */}
             <div className="mb-6">
               <label className="block text-sm font-semibold text-purple-700 dark:text-purple-300 mb-3">
-                Player Colors
+                Player Colors <span className="text-xs font-normal">(click to customize)</span>
               </label>
               <div className="flex gap-2 flex-wrap">
-                {WILDE_COLORS.slice(0, playerCount).map((color) => (
-                  <div
-                    key={color.id}
-                    className="w-8 h-8 rounded-full shadow-md transition-transform hover:scale-110"
-                    style={{ backgroundColor: color.hex }}
-                    title={color.name}
-                  />
-                ))}
+                {WILDE_COLORS.slice(0, playerCount).map((color) => {
+                  const hueOffset = customHues[color.id] || 0;
+                  const displayColor = hueOffset ? getAdjustedColor(color.hex, hueOffset) : color.hex;
+                  return (
+                    <button
+                      key={color.id}
+                      onClick={() => setSelectedColorIndex(selectedColorIndex === color.id ? null : color.id)}
+                      className={`w-8 h-8 rounded-full shadow-md transition-all hover:scale-110 ${
+                        selectedColorIndex === color.id ? 'ring-2 ring-white ring-offset-2 ring-offset-purple-500 scale-125' : ''
+                      }`}
+                      style={{ backgroundColor: displayColor }}
+                      title={`${color.name} - Click to adjust hue`}
+                    />
+                  );
+                })}
               </div>
+              {/* Hue Slider */}
+              {selectedColorIndex !== null && (
+                <div className="mt-4 p-4 bg-white/50 dark:bg-zinc-700/50 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div
+                      className="w-6 h-6 rounded-full shadow-md"
+                      style={{
+                        backgroundColor: getAdjustedColor(
+                          WILDE_COLORS[selectedColorIndex].hex,
+                          customHues[selectedColorIndex] || 0
+                        )
+                      }}
+                    />
+                    <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                      Hue: {customHues[selectedColorIndex] || 0}°
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={-180}
+                    max={180}
+                    value={customHues[selectedColorIndex] || 0}
+                    onChange={(e) => setCustomHues(prev => ({
+                      ...prev,
+                      [selectedColorIndex]: Number(e.target.value)
+                    }))}
+                    className="w-full h-3 rounded-lg appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right,
+                        hsl(0, 70%, 50%),
+                        hsl(60, 70%, 50%),
+                        hsl(120, 70%, 50%),
+                        hsl(180, 70%, 50%),
+                        hsl(240, 70%, 50%),
+                        hsl(300, 70%, 50%),
+                        hsl(360, 70%, 50%))`
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      setCustomHues(prev => {
+                        const newHues = { ...prev };
+                        delete newHues[selectedColorIndex];
+                        return newHues;
+                      });
+                    }}
+                    className="mt-2 text-xs text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200"
+                  >
+                    Reset to default
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Board Width */}
@@ -108,7 +262,7 @@ export default function WildeGoHome() {
                 min={3}
                 max={20}
                 value={boardWidth}
-                onChange={(e) => setBoardWidth(Number(e.target.value))}
+                onChange={(e) => handleBoardWidthChange(Number(e.target.value))}
                 className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-pink-500"
               />
               <div className="flex justify-between text-xs text-purple-500 mt-1">
@@ -118,7 +272,7 @@ export default function WildeGoHome() {
             </div>
 
             {/* Board Height */}
-            <div className="mb-6">
+            <div className="mb-4">
               <label className="block text-sm font-semibold text-purple-700 dark:text-purple-300 mb-2">
                 Board Height: {boardHeight}
               </label>
@@ -127,13 +281,65 @@ export default function WildeGoHome() {
                 min={3}
                 max={20}
                 value={boardHeight}
-                onChange={(e) => setBoardHeight(Number(e.target.value))}
+                onChange={(e) => handleBoardHeightChange(Number(e.target.value))}
                 className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-500"
               />
               <div className="flex justify-between text-xs text-purple-500 mt-1">
                 <span>3</span>
                 <span>20</span>
               </div>
+            </div>
+
+            {/* Stones Per Player */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-purple-700 dark:text-purple-300 mb-2">
+                Stones Per Player: {stonesPerPlayer}
+                {hasManualOverride && (
+                  <span className="text-xs font-normal ml-2 text-pink-500">(custom)</span>
+                )}
+              </label>
+              <input
+                type="range"
+                min={5}
+                max={200}
+                value={stonesPerPlayer}
+                onChange={(e) => handleStonesChange(Number(e.target.value))}
+                className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <div className="flex justify-between text-xs text-purple-500 mt-1">
+                <span>5</span>
+                <span className="text-purple-400">default: {defaultStones}</span>
+                <span>200</span>
+              </div>
+              {hasManualOverride && (
+                <button
+                  onClick={() => setHasManualOverride(false)}
+                  className="mt-2 text-xs text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200"
+                >
+                  Reset to default ({defaultStones})
+                </button>
+              )}
+            </div>
+
+            {/* Pacman Mode Toggle */}
+            <div className="mb-6">
+              <button
+                onClick={() => setPacmanMode(!pacmanMode)}
+                className={`w-full py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-3 ${
+                  pacmanMode
+                    ? 'bg-yellow-400 text-yellow-900 shadow-lg ring-2 ring-yellow-500'
+                    : 'bg-white/50 dark:bg-zinc-700/50 text-purple-600 dark:text-purple-300 hover:bg-white/80 dark:hover:bg-zinc-700/80'
+                }`}
+              >
+                <span className="text-2xl">{pacmanMode ? '🟡' : '⚪'}</span>
+                <span>Pacman Mode</span>
+                <span className="text-2xl">{pacmanMode ? '👻' : ''}</span>
+              </button>
+              {pacmanMode && (
+                <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 text-center">
+                  Pacman & Ms. Pacman will randomly appear and eat stones!
+                </p>
+              )}
             </div>
 
             {/* Board Preview */}

@@ -2,8 +2,8 @@
 
 interface CrazyStonePotProps {
   color: 0 | 1 | 2 | 3; // 0=black, 1=white, 2=white-cross, 3=black-cross
-  count: number;
-  returned: number;
+  potCount: number;
+  captured: number;
   isHoldingStone: boolean;
   heldStoneColor: 0 | 1 | 2 | 3 | null;
   isCurrentTurn?: boolean;
@@ -43,16 +43,15 @@ const colorStyles = {
 
 export default function CrazyStonePot({
   color,
-  count,
-  returned,
+  potCount,
+  captured,
   isHoldingStone,
   heldStoneColor,
   isCurrentTurn = false,
   small = false,
   onClick,
 }: CrazyStonePotProps) {
-  const total = count + returned;
-  const canPickUp = !isHoldingStone && total > 0 && isCurrentTurn;
+  const canPickUp = !isHoldingStone && potCount > 0 && isCurrentTurn;
   const canDropHere = isHoldingStone && heldStoneColor === color;
   const styles = colorStyles[color];
 
@@ -65,8 +64,8 @@ export default function CrazyStonePot({
         transition-all duration-200
         ${small ? 'w-14 h-14' : 'w-20 h-20'}
         ${styles.bg}
-        ${isCurrentTurn ? 'ring-4 ring-red-500' : 'ring-4 ring-[#8f6c00]'}
-        ${canPickUp ? 'cursor-grab hover:ring-red-400 active:ring-red-600' : ''}
+        ${isCurrentTurn ? 'ring-4 ring-white' : 'ring-4 ring-[#8f6c00]'}
+        ${canPickUp ? 'cursor-grab hover:ring-zinc-200 active:ring-zinc-300' : ''}
         ${canDropHere ? 'cursor-pointer ring-[#8f6c00] active:ring-[#8f6c00]' : ''}
         ${!canPickUp && !canDropHere ? 'cursor-default' : ''}
         shadow-lg hover:shadow-xl
@@ -95,7 +94,7 @@ export default function CrazyStonePot({
         )}
       </div>
       <span className={`font-bold ${small ? 'text-xs' : 'text-sm'} ${styles.text}`}>
-        {returned > 0 ? `${count}/${returned}` : count}
+        {captured > 0 ? `${potCount}/${captured}` : potCount}
       </span>
     </button>
   );

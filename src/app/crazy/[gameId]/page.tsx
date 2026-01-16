@@ -18,15 +18,16 @@ interface CrazyGameData {
   whitePotCount: number;
   brownPotCount: number;
   greyPotCount: number;
-  blackReturned: number;
-  whiteReturned: number;
-  brownReturned: number;
-  greyReturned: number;
+  blackCaptured: number;
+  whiteCaptured: number;
+  brownCaptured: number;
+  greyCaptured: number;
   lastMoveX: number | null;
   lastMoveY: number | null;
   koPointX: number | null;
   koPointY: number | null;
   currentTurn: number;
+  moveNumber: number;
   connectedUsers: number;
   publicKey: string;
   updatedAt: string;
@@ -40,6 +41,81 @@ interface ReplayAction {
   toX: number | null;
   toY: number | null;
   moveNumber: number;
+}
+
+// Client-side capture detection for 4-player Go
+function detectAndRemoveCaptures(board: CrazyBoard, placedX: number, placedY: number, placedColor: CrazyStone): {
+  newBoard: CrazyBoard;
+  blackCaptured: number;
+  whiteCaptured: number;
+  brownCaptured: number;
+  greyCaptured: number;
+} {
+  const size = board.length;
+  const newBoard = board.map(row => [...row]) as CrazyBoard;
+  let blackCaptured = 0;
+  let whiteCaptured = 0;
+  let brownCaptured = 0;
+  let greyCaptured = 0;
+
+  const getAdjacent = (pos: Position): Position[] => {
+    const adj: Position[] = [];
+    if (pos.x > 0) adj.push({ x: pos.x - 1, y: pos.y });
+    if (pos.x < size - 1) adj.push({ x: pos.x + 1, y: pos.y });
+    if (pos.y > 0) adj.push({ x: pos.x, y: pos.y - 1 });
+    if (pos.y < size - 1) adj.push({ x: pos.x, y: pos.y + 1 });
+    return adj;
+  };
+
+  const getGroup = (start: Position): Position[] => {
+    const c = newBoard[start.y][start.x];
+    if (c === null) return [];
+    const group: Position[] = [];
+    const visited = new Set<string>();
+    const queue: Position[] = [start];
+    while (queue.length > 0) {
+      const pos = queue.shift()!;
+      const key = `${pos.x},${pos.y}`;
+      if (visited.has(key)) continue;
+      if (newBoard[pos.y][pos.x] !== c) continue;
+      visited.add(key);
+      group.push(pos);
+      for (const adj of getAdjacent(pos)) {
+        if (!visited.has(`${adj.x},${adj.y}`)) queue.push(adj);
+      }
+    }
+    return group;
+  };
+
+  const countLiberties = (group: Position[]): number => {
+    const liberties = new Set<string>();
+    for (const pos of group) {
+      for (const adj of getAdjacent(pos)) {
+        if (newBoard[adj.y][adj.x] === null) liberties.add(`${adj.x},${adj.y}`);
+      }
+    }
+    return liberties.size;
+  };
+
+  // Check adjacent opponent groups first (captures happen before self-capture check)
+  for (const adj of getAdjacent({ x: placedX, y: placedY })) {
+    const adjColor = newBoard[adj.y][adj.x];
+    if (adjColor !== null && adjColor !== placedColor) {
+      const group = getGroup(adj);
+      if (countLiberties(group) === 0) {
+        for (const pos of group) {
+          const capturedColor = newBoard[pos.y][pos.x];
+          if (capturedColor === 0) blackCaptured++;
+          else if (capturedColor === 1) whiteCaptured++;
+          else if (capturedColor === 2) brownCaptured++;
+          else if (capturedColor === 3) greyCaptured++;
+          newBoard[pos.y][pos.x] = null;
+        }
+      }
+    }
+  }
+
+  return { newBoard, blackCaptured, whiteCaptured, brownCaptured, greyCaptured };
 }
 
 // 4-player suicide check
@@ -106,6 +182,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
   const searchParams = useSearchParams();
   const deviceType = useDeviceType();
   const isDesktop = deviceType === 'desktop';
+  const isMobile = deviceType === 'mobile';
 
   const [gameId, setGameId] = useState<string | null>(null);
   const [urlKey, setUrlKey] = useState<string | null>(null);
@@ -220,15 +297,16 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
         whitePotCount: data.whitePotCount,
         brownPotCount: data.brownPotCount,
         greyPotCount: data.greyPotCount,
-        blackReturned: data.blackReturned,
-        whiteReturned: data.whiteReturned,
-        brownReturned: data.brownReturned,
-        greyReturned: data.greyReturned,
+        blackCaptured: data.blackCaptured,
+        whiteCaptured: data.whiteCaptured,
+        brownCaptured: data.brownCaptured,
+        greyCaptured: data.greyCaptured,
         lastMoveX: data.lastMoveX,
         lastMoveY: data.lastMoveY,
         koPointX: data.koPointX,
         koPointY: data.koPointY,
         currentTurn: data.currentTurn,
+        moveNumber: data.moveNumber,
       } : null);
 
       return true;
@@ -252,11 +330,12 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
         setHeldStone(null);
       }
     } else {
+      // Japanese scoring: only potCount matters for picking up (captured are just points)
       const potCounts = {
-        0: (game?.blackPotCount ?? 0) + (game?.blackReturned ?? 0),
-        1: (game?.whitePotCount ?? 0) + (game?.whiteReturned ?? 0),
-        2: (game?.brownPotCount ?? 0) + (game?.brownReturned ?? 0),
-        3: (game?.greyPotCount ?? 0) + (game?.greyReturned ?? 0),
+        0: game?.blackPotCount ?? 0,
+        1: game?.whitePotCount ?? 0,
+        2: game?.brownPotCount ?? 0,
+        3: game?.greyPotCount ?? 0,
       };
       if (potCounts[color] > 0) {
         setHeldStone({ color });
@@ -271,24 +350,83 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     if (heldStone) {
       if (stoneAtPos === null) {
         if (heldStone.fromBoard) {
+          // Moving a stone on the board
           const testBoard = game.boardState.map(row => [...row]) as CrazyBoard;
           testBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
           if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color)) return;
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
+
+          // Optimistic update for move
+          const newBoard = game.boardState.map(row => [...row]) as CrazyBoard;
+          newBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
+          newBoard[pos.y][pos.x] = heldStone.color;
+
+          // Detect captures after move
+          const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured, brownCaptured, greyCaptured } =
+            detectAndRemoveCaptures(newBoard, pos.x, pos.y, heldStone.color);
+
+          // Japanese scoring: capturing player (the one who moved) gets credit
+          const totalCaptured = blackCaptured + whiteCaptured + brownCaptured + greyCaptured;
+          setGame(prev => prev ? {
+            ...prev,
+            boardState: boardAfterCaptures,
+            lastMoveX: pos.x,
+            lastMoveY: pos.y,
+            blackCaptured: prev.blackCaptured + (heldStone.color === 0 ? totalCaptured : 0),
+            whiteCaptured: prev.whiteCaptured + (heldStone.color === 1 ? totalCaptured : 0),
+            brownCaptured: prev.brownCaptured + (heldStone.color === 2 ? totalCaptured : 0),
+            greyCaptured: prev.greyCaptured + (heldStone.color === 3 ? totalCaptured : 0),
+          } : null);
+          setHeldStone(null);
+
+          // Send to server in background
           performAction('move', {
             fromX: heldStone.fromBoard.x,
             fromY: heldStone.fromBoard.y,
             toX: pos.x,
             toY: pos.y,
-          }).then(success => { if (success) setHeldStone(null); });
+          });
         } else {
+          // Placing a stone from pot
           if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color)) return;
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
+
+          // Optimistic update - place stone and detect captures
+          const newBoard = game.boardState.map(row => [...row]) as CrazyBoard;
+          newBoard[pos.y][pos.x] = heldStone.color;
+
+          const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured, brownCaptured, greyCaptured } =
+            detectAndRemoveCaptures(newBoard, pos.x, pos.y, heldStone.color);
+
+          // Determine which pot to decrement
+          const newPotCount = {
+            blackPotCount: game.blackPotCount - (heldStone.color === 0 ? 1 : 0),
+            whitePotCount: game.whitePotCount - (heldStone.color === 1 ? 1 : 0),
+            brownPotCount: game.brownPotCount - (heldStone.color === 2 ? 1 : 0),
+            greyPotCount: game.greyPotCount - (heldStone.color === 3 ? 1 : 0),
+          };
+
+          // Japanese scoring: capturing player (the one placing) gets credit
+          const totalCaptured = blackCaptured + whiteCaptured + brownCaptured + greyCaptured;
+          setGame(prev => prev ? {
+            ...prev,
+            boardState: boardAfterCaptures,
+            lastMoveX: pos.x,
+            lastMoveY: pos.y,
+            ...newPotCount,
+            blackCaptured: prev.blackCaptured + (heldStone.color === 0 ? totalCaptured : 0),
+            whiteCaptured: prev.whiteCaptured + (heldStone.color === 1 ? totalCaptured : 0),
+            brownCaptured: prev.brownCaptured + (heldStone.color === 2 ? totalCaptured : 0),
+            greyCaptured: prev.greyCaptured + (heldStone.color === 3 ? totalCaptured : 0),
+          } : null);
+          setHeldStone(null);
+
+          // Send to server in background
           performAction('place', {
             stoneColor: heldStone.color,
             toX: pos.x,
             toY: pos.y,
-          }).then(success => { if (success) setHeldStone(null); });
+          });
         }
       }
     } else {
@@ -298,12 +436,48 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     }
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (!privateKey || !gameId) return;
     const shareUrl = `${window.location.origin}/crazy/${gameId}?key=${encodeURIComponent(privateKey)}`;
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        // Fallback for iOS and older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Final fallback
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        console.error('Failed to copy');
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   const handleKeySubmit = async () => {
@@ -415,7 +589,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
       setReplayBoard(createEmptyBoard(data.boardSize));
       setReplayIndex(0);
       setIsReplayMode(true);
-      setIsPlaying(false);
+      setIsPlaying(true); // Auto-start playback
     } catch (err) {
       console.error('Error starting replay:', err);
       setError('Failed to load replay');
@@ -467,14 +641,15 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     }
   };
 
-  // Auto-play effect (2x speed = 500ms per move)
+  // Auto-play effect (2x speed = 500ms per move), auto-exit when done
   useEffect(() => {
     if (isPlaying && replayIndex < replayActions.length) {
       replayIntervalRef.current = setTimeout(() => {
         stepForward();
       }, 500); // 2x speed
     } else if (isPlaying && replayIndex >= replayActions.length) {
-      setIsPlaying(false);
+      // Auto-exit replay when finished
+      exitReplay();
     }
     return () => {
       if (replayIntervalRef.current) {
@@ -505,15 +680,16 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
         whitePotCount: data.whitePotCount,
         brownPotCount: data.brownPotCount,
         greyPotCount: data.greyPotCount,
-        blackReturned: data.blackReturned,
-        whiteReturned: data.whiteReturned,
-        brownReturned: data.brownReturned,
-        greyReturned: data.greyReturned,
+        blackCaptured: data.blackCaptured,
+        whiteCaptured: data.whiteCaptured,
+        brownCaptured: data.brownCaptured,
+        greyCaptured: data.greyCaptured,
         lastMoveX: data.lastMoveX,
         lastMoveY: data.lastMoveY,
         koPointX: data.koPointX,
         koPointY: data.koPointY,
         currentTurn: data.currentTurn,
+        moveNumber: data.moveNumber,
       } : null);
       setHeldStone(null);
     } catch (err) {
@@ -523,11 +699,52 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     }
   };
 
+  const undoMove = async () => {
+    if (!privateKey || !gameId) return;
+    try {
+      const res = await fetch(`/api/crazy/${gameId}/undo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ privateKey }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to undo');
+        setTimeout(() => setError(null), 3000);
+        return;
+      }
+      const data = await res.json();
+      setGame(prev => prev ? {
+        ...prev,
+        boardState: data.boardState,
+        blackPotCount: data.blackPotCount,
+        whitePotCount: data.whitePotCount,
+        brownPotCount: data.brownPotCount,
+        greyPotCount: data.greyPotCount,
+        blackCaptured: data.blackCaptured,
+        whiteCaptured: data.whiteCaptured,
+        brownCaptured: data.brownCaptured,
+        greyCaptured: data.greyCaptured,
+        lastMoveX: data.lastMoveX,
+        lastMoveY: data.lastMoveY,
+        koPointX: data.koPointX,
+        koPointY: data.koPointY,
+        currentTurn: data.currentTurn,
+        moveNumber: data.moveNumber,
+      } : null);
+      setHeldStone(null);
+    } catch (err) {
+      console.error('Error undoing move:', err);
+      setError('Failed to undo');
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+
   if (showKeyModal && !privateKey) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-md w-full">
-          <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">Access Denied</h2>
+      <div className={`flex items-center justify-center p-4 ${isDesktop ? 'min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800' : 'h-dvh bg-black'}`}>
+        <div className={`rounded-2xl shadow-xl p-8 max-w-md w-full ${isDesktop ? 'bg-white dark:bg-zinc-800' : 'bg-zinc-900'}`}>
+          <h2 className={`text-2xl font-bold mb-6 ${isDesktop ? 'text-zinc-800 dark:text-zinc-100' : 'text-zinc-100'}`}>Access Denied</h2>
           <input
             type="text"
             value={keyInput}
@@ -551,18 +768,18 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 flex items-center justify-center">
-        <div className="text-xl text-zinc-600 dark:text-zinc-400">Loading board...</div>
+      <div className={`flex items-center justify-center ${isDesktop ? 'min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800' : 'h-dvh bg-black'}`}>
+        <div className={`text-xl ${isDesktop ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-400'}`}>Loading board...</div>
       </div>
     );
   }
 
   if (error && !game) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 flex items-center justify-center">
-        <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-md text-center">
+      <div className={`flex items-center justify-center ${isDesktop ? 'min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800' : 'h-dvh bg-black'}`}>
+        <div className={`rounded-2xl shadow-xl p-8 max-w-md text-center ${isDesktop ? 'bg-white dark:bg-zinc-800' : 'bg-zinc-900'}`}>
           <div className="text-red-500 text-xl mb-4">{error}</div>
-          <button onClick={() => router.push('/crazy')} className="px-6 py-3 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-800 rounded-lg font-semibold hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors">
+          <button onClick={() => router.push('/crazy')} className={`px-6 py-3 rounded-lg font-semibold transition-colors ${isDesktop ? 'bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-800 hover:bg-zinc-700 dark:hover:bg-zinc-200' : 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200'}`}>
             Home
           </button>
         </div>
@@ -573,28 +790,8 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
   if (!game) return null;
 
   // Top buttons for CrazyGoBoard perimeter - black bold text (same as normal Go)
-  const topButtons = isReplayMode ? (
-    <>
-      <button
-        onClick={() => router.push('/crazy')}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
-        Home
-      </button>
-      <button
-        onClick={exitReplay}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
-        Exit
-      </button>
-      <button
-        onClick={handleShare}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
-        {copied ? 'COPIED!' : 'SHARE'}
-      </button>
-    </>
-  ) : (
+  // Menu stays the same during replay
+  const topButtons = (
     <>
       <button
         onClick={() => router.push('/crazy')}
@@ -607,6 +804,12 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
         className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
       >
         REPLAY
+      </button>
+      <button
+        onClick={undoMove}
+        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
+      >
+        UNDO
       </button>
       <button
         onClick={clearBoard}
@@ -624,27 +827,9 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800">
-      <div className="container mx-auto px-2 sm:px-4 pt-12 sm:pt-16 pb-4 sm:pb-8">
+    <div className={isDesktop ? 'min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800' : 'bg-black h-dvh flex flex-col'}>
+      <div className={isDesktop ? 'container mx-auto px-2 sm:px-4 pt-12 sm:pt-16 pb-4 sm:pb-8' : 'flex-1 flex flex-col justify-center px-2'}>
         {/* Buttons are now rendered inside CrazyGoBoard perimeter */}
-
-        {/* Replay Controls - shown below board when in replay mode */}
-        {isReplayMode && (
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <button onClick={stepBackward} disabled={replayIndex === 0} className="px-3 py-2 bg-zinc-700 text-white rounded-lg font-medium hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
-              &lt; Back
-            </button>
-            <button onClick={togglePlay} className="px-4 py-2 bg-zinc-800 text-white rounded-lg font-medium hover:bg-zinc-700 transition-colors text-sm min-w-[80px]">
-              {isPlaying ? 'Pause' : 'Play'}
-            </button>
-            <button onClick={stepForward} disabled={replayIndex >= replayActions.length} className="px-3 py-2 bg-zinc-700 text-white rounded-lg font-medium hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
-              Next &gt;
-            </button>
-            <span className="text-zinc-600 dark:text-zinc-400 text-sm">
-              {replayIndex} / {replayActions.length}
-            </span>
-          </div>
-        )}
 
         {error && (
           <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6 text-center">
@@ -652,40 +837,28 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           </div>
         )}
 
-        {/* Game Board with 4 Stone Pots */}
-        {isReplayMode && replayBoard ? (
-          /* Replay Mode - just show board */
-          <div className="flex justify-center">
-            <CrazyGoBoard
-              board={replayBoard}
-              size={replayBoardSize}
-              heldStone={null}
-              lastMove={null}
-              onBoardClick={() => {}}
-              topButtons={topButtons}
-            />
-          </div>
-        ) : isDesktop ? (
+        {/* Game Board with 4 Stone Pots - layout stays the same during replay */}
+        {isDesktop ? (
           /* Desktop: 2 pots on each side */
           <div className="relative flex items-center justify-center">
             <div className="relative">
               <CrazyGoBoard
-                board={game.boardState}
-                size={game.boardSize}
-                heldStone={heldStone}
-                lastMove={game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null}
-                onBoardClick={handleBoardClick}
+                board={isReplayMode && replayBoard ? replayBoard : game.boardState}
+                size={isReplayMode ? replayBoardSize : game.boardSize}
+                heldStone={isReplayMode ? null : heldStone}
+                lastMove={isReplayMode ? null : (game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null)}
+                onBoardClick={isReplayMode ? () => {} : handleBoardClick}
                 topButtons={topButtons}
               />
               {/* Left pots (White & Brown) */}
               <div className="absolute top-1/2 -translate-y-1/2 flex flex-col gap-4" style={{ right: 'calc(100% + 20px)' }}>
-                <CrazyStonePot color={1} count={game.whitePotCount} returned={game.whiteReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 1} onClick={() => handlePotClick(1)} />
-                <CrazyStonePot color={2} count={game.brownPotCount} returned={game.brownReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 2} onClick={() => handlePotClick(2)} />
+                <CrazyStonePot color={1} potCount={game.whitePotCount} captured={game.whiteCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 1} onClick={() => handlePotClick(1)} />
+                <CrazyStonePot color={2} potCount={game.brownPotCount} captured={game.brownCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 2} onClick={() => handlePotClick(2)} />
               </div>
               {/* Right pots (Black & Grey) */}
               <div className="absolute top-1/2 -translate-y-1/2 flex flex-col gap-4" style={{ left: 'calc(100% + 20px)' }}>
-                <CrazyStonePot color={0} count={game.blackPotCount} returned={game.blackReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 0} onClick={() => handlePotClick(0)} />
-                <CrazyStonePot color={3} count={game.greyPotCount} returned={game.greyReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 3} onClick={() => handlePotClick(3)} />
+                <CrazyStonePot color={0} potCount={game.blackPotCount} captured={game.blackCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 0} onClick={() => handlePotClick(0)} />
+                <CrazyStonePot color={3} potCount={game.greyPotCount} captured={game.greyCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 3} onClick={() => handlePotClick(3)} />
               </div>
             </div>
           </div>
@@ -695,21 +868,21 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
             <div className="relative">
               {/* Top pots (White & Brown) */}
               <div className="absolute left-1/2 -translate-x-1/2 flex gap-4" style={{ bottom: 'calc(100% + 20px)' }}>
-                <CrazyStonePot color={1} count={game.whitePotCount} returned={game.whiteReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 1} onClick={() => handlePotClick(1)} />
-                <CrazyStonePot color={2} count={game.brownPotCount} returned={game.brownReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 2} onClick={() => handlePotClick(2)} />
+                <CrazyStonePot color={1} potCount={game.whitePotCount} captured={game.whiteCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 1} onClick={() => handlePotClick(1)} />
+                <CrazyStonePot color={2} potCount={game.brownPotCount} captured={game.brownCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 2} onClick={() => handlePotClick(2)} />
               </div>
               <CrazyGoBoard
-                board={game.boardState}
-                size={game.boardSize}
-                heldStone={heldStone}
-                lastMove={game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null}
-                onBoardClick={handleBoardClick}
+                board={isReplayMode && replayBoard ? replayBoard : game.boardState}
+                size={isReplayMode ? replayBoardSize : game.boardSize}
+                heldStone={isReplayMode ? null : heldStone}
+                lastMove={isReplayMode ? null : (game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null)}
+                onBoardClick={isReplayMode ? () => {} : handleBoardClick}
                 topButtons={topButtons}
               />
               {/* Bottom pots (Black & Grey) */}
               <div className="absolute left-1/2 -translate-x-1/2 flex gap-4" style={{ top: 'calc(100% + 20px)' }}>
-                <CrazyStonePot color={0} count={game.blackPotCount} returned={game.blackReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 0} onClick={() => handlePotClick(0)} />
-                <CrazyStonePot color={3} count={game.greyPotCount} returned={game.greyReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 3} onClick={() => handlePotClick(3)} />
+                <CrazyStonePot color={0} potCount={game.blackPotCount} captured={game.blackCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 0} onClick={() => handlePotClick(0)} />
+                <CrazyStonePot color={3} potCount={game.greyPotCount} captured={game.greyCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 3} onClick={() => handlePotClick(3)} />
               </div>
             </div>
           </div>
@@ -717,18 +890,18 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           /* Mobile: All 4 pots at bottom */
           <div className="flex flex-col items-center">
             <CrazyGoBoard
-              board={game.boardState}
-              size={game.boardSize}
-              heldStone={heldStone}
-              lastMove={game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null}
-              onBoardClick={handleBoardClick}
+              board={isReplayMode && replayBoard ? replayBoard : game.boardState}
+              size={isReplayMode ? replayBoardSize : game.boardSize}
+              heldStone={isReplayMode ? null : heldStone}
+              lastMove={isReplayMode ? null : (game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null)}
+              onBoardClick={isReplayMode ? () => {} : handleBoardClick}
               topButtons={topButtons}
             />
             <div className="flex gap-3 mt-4">
-              <CrazyStonePot color={0} count={game.blackPotCount} returned={game.blackReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 0} small={true} onClick={() => handlePotClick(0)} />
-              <CrazyStonePot color={1} count={game.whitePotCount} returned={game.whiteReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 1} small={true} onClick={() => handlePotClick(1)} />
-              <CrazyStonePot color={2} count={game.brownPotCount} returned={game.brownReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 2} small={true} onClick={() => handlePotClick(2)} />
-              <CrazyStonePot color={3} count={game.greyPotCount} returned={game.greyReturned} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 3} small={true} onClick={() => handlePotClick(3)} />
+              <CrazyStonePot color={0} potCount={game.blackPotCount} captured={game.blackCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 0} small={true} onClick={() => handlePotClick(0)} />
+              <CrazyStonePot color={1} potCount={game.whitePotCount} captured={game.whiteCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 1} small={true} onClick={() => handlePotClick(1)} />
+              <CrazyStonePot color={2} potCount={game.brownPotCount} captured={game.brownCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 2} small={true} onClick={() => handlePotClick(2)} />
+              <CrazyStonePot color={3} potCount={game.greyPotCount} captured={game.greyCaptured} isHoldingStone={heldStone !== null} heldStoneColor={heldStone?.color ?? null} isCurrentTurn={game.currentTurn === 3} small={true} onClick={() => handlePotClick(3)} />
             </div>
           </div>
         )}

@@ -272,6 +272,7 @@ export function countTerritory(board: Board): { black: number; white: number } {
 }
 
 // Check if placing a stone would be suicide (no liberties and doesn't capture anything)
+// A move is suicide only if AFTER captures are processed, the placed stone has no liberties
 export function wouldBeSuicide(board: Board, x: number, y: number, color: 0 | 1): boolean {
   const boardSize = board.length;
   const testBoard = board.map(row => [...row]);
@@ -279,23 +280,24 @@ export function wouldBeSuicide(board: Board, x: number, y: number, color: 0 | 1)
 
   const opponent = color === 0 ? 1 : 0;
 
-  // First check if this placement captures any opponent stones
+  // First, find and remove any opponent groups that would be captured
+  // This must happen BEFORE checking if the placed stone has liberties
   const adjacentPositions = getAdjacent({ x, y }, boardSize);
   for (const adj of adjacentPositions) {
     if (testBoard[adj.y][adj.x] === opponent) {
       const group = getGroupFromBoard(testBoard, adj);
       if (countLibertiesFromBoard(testBoard, group) === 0) {
-        // This move would capture opponent stones, so it's valid
-        return false;
+        // Remove the captured group from the test board
+        for (const pos of group) {
+          testBoard[pos.y][pos.x] = null;
+        }
       }
     }
   }
 
-  // No captures, check if the placed stone's group has liberties
+  // Now check if the placed stone's group has liberties (after captures are removed)
   const placedGroup = getGroupFromBoard(testBoard, { x, y });
-  const liberties = countLibertiesFromBoard(testBoard, placedGroup);
-
-  return liberties === 0;
+  return countLibertiesFromBoard(testBoard, placedGroup) === 0;
 }
 
 // Detect and remove captured stones from the board (for shared board mode)

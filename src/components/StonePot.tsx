@@ -2,8 +2,9 @@
 
 interface StonePotProps {
   color: 0 | 1; // 0 = black, 1 = white
-  count: number; // Original stones remaining
-  returned: number; // Stones returned from board
+  potCount: number; // Stones available in pot
+  captured: number; // Opponent stones captured (Japanese scoring)
+  onBoard: number; // Own stones on board (Chinese scoring)
   isHoldingStone: boolean;
   heldStoneColor: 0 | 1 | null;
   rotated?: boolean; // Rotate 180° for face-to-face play
@@ -13,8 +14,9 @@ interface StonePotProps {
 
 export default function StonePot({
   color,
-  count,
-  returned,
+  potCount,
+  captured,
+  onBoard,
   isHoldingStone,
   heldStoneColor,
   rotated = false,
@@ -22,8 +24,7 @@ export default function StonePot({
   onClick,
 }: StonePotProps) {
   const isBlack = color === 0;
-  const total = count + returned;
-  const canPickUp = !isHoldingStone && total > 0;
+  const canPickUp = !isHoldingStone && potCount > 0;
   const canDropHere = isHoldingStone && heldStoneColor === color;
 
   return (
@@ -58,16 +59,17 @@ export default function StonePot({
         `}
       />
 
-      {/* Count: show "original/returned" if there are returned stones */}
-      <span
+      {/* Stats: potCount / captured / onBoard */}
+      <div
         className={`
-          font-bold
-          ${small ? 'text-xs' : 'text-sm'}
+          font-bold text-center leading-tight
+          ${small ? 'text-[10px]' : 'text-xs'}
           ${isBlack ? 'text-zinc-300' : 'text-zinc-600'}
         `}
       >
-        {returned > 0 ? `${count}/${returned}` : count}
-      </span>
+        <div className={small ? 'text-xs' : 'text-sm'}>{potCount}</div>
+        <div className="opacity-75">{captured}/{onBoard}</div>
+      </div>
     </button>
   );
 }

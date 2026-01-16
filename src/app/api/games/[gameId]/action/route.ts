@@ -4,6 +4,8 @@ import { eq } from 'drizzle-orm';
 import { verifyKeyPair } from '@/lib/crypto/keys';
 import type { Board, Stone } from '@/lib/game/logic';
 import { detectAndRemoveCaptures, wouldBeSuicide } from '@/lib/game/logic';
+import { errorResponse, ERROR_IDS } from '@/lib/errors';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rateLimit';
 
 // POST /api/games/[gameId]/action - Perform an action on the board
 // Actions: place (from pot to board), remove (from board to pot), move (on board)
@@ -13,10 +15,31 @@ export async function POST(
 ) {
   try {
     const { gameId } = await params;
+
+    // Rate limiting
+    const clientIP = getClientIP(request);
+    const rateLimitKey = `games:action:${gameId}:${clientIP}`;
+    const rateLimitResult = checkRateLimit(rateLimitKey, RATE_LIMITS.gameAction);
+
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please slow down.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(rateLimitResult.resetTime),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const { privateKey, actionType, stoneColor, fromX, fromY, toX, toY } = body;
 
     if (!privateKey) {
+      const err = await errorResponse(ERROR_IDS.NORMAL_PRIVATE_KEY_REQUIRED, 'Private key is required', 400);
+      if (err) return err;
       return NextResponse.json(
         { error: 'Private key is required' },
         { status: 400 }
@@ -48,8 +71,10 @@ export async function POST(
     let newBoardState = boardState.map(row => [...row]);
     let newBlackPotCount = game[0].blackPotCount;
     let newWhitePotCount = game[0].whitePotCount;
-    let newBlackReturned = game[0].blackReturned;
-    let newWhiteReturned = game[0].whiteReturned;
+    let newBlackCaptured = game[0].blackCaptured;
+    let newWhiteCaptured = game[0].whiteCaptured;
+    let newBlackOnBoard = game[0].blackOnBoard;
+    let newWhiteOnBoard = game[0].whiteOnBoard;
     let newLastMoveX: number | null = game[0].lastMoveX;
     let newLastMoveY: number | null = game[0].lastMoveY;
     let newKoPointX: number | null = null;
@@ -73,14 +98,11 @@ export async function POST(
           return NextResponse.json({ error: 'Position is occupied' }, { status: 400 });
         }
 
-        // Check pot has stones (either original or returned)
-        const totalBlack = newBlackPotCount + newBlackReturned;
-        const totalWhite = newWhitePotCount + newWhiteReturned;
-
-        if (stoneColor === 0 && totalBlack <= 0) {
+        // Check pot has stones available
+        if (stoneColor === 0 && newBlackPotCount <= 0) {
           return NextResponse.json({ error: 'No black stones in pot' }, { status: 400 });
         }
-        if (stoneColor === 1 && totalWhite <= 0) {
+        if (stoneColor === 1 && newWhitePotCount <= 0) {
           return NextResponse.json({ error: 'No white stones in pot' }, { status: 400 });
         }
 
@@ -94,14 +116,14 @@ export async function POST(
           return NextResponse.json({ error: 'Ko rule violation - cannot recapture immediately' }, { status: 400 });
         }
 
-        // Place the stone - use returned stones first, then original
+        // Place the stone - decrement pot, increment onBoard
         newBoardState[toY][toX] = stoneColor as Stone;
         if (stoneColor === 0) {
-          if (newBlackReturned > 0) newBlackReturned--;
-          else newBlackPotCount--;
+          newBlackPotCount--;
+          newBlackOnBoard++;
         } else {
-          if (newWhiteReturned > 0) newWhiteReturned--;
-          else newWhitePotCount--;
+          newWhitePotCount--;
+          newWhiteOnBoard++;
         }
         // Track this as the last move
         newLastMoveX = toX;
@@ -123,10 +145,15 @@ export async function POST(
           return NextResponse.json({ error: 'No stone at position' }, { status: 400 });
         }
 
-        // Remove the stone and add to returned pile
+        // Remove the stone - increment pot, decrement onBoard
         newBoardState[fromY][fromX] = null;
-        if (stone === 0) newBlackReturned++;
-        else newWhiteReturned++;
+        if (stone === 0) {
+          newBlackPotCount++;
+          newBlackOnBoard--;
+        } else {
+          newWhitePotCount++;
+          newWhiteOnBoard--;
+        }
         break;
       }
 
@@ -181,9 +208,17 @@ export async function POST(
       const captureResult = detectAndRemoveCaptures(newBoardState, placedX, placedY);
       newBoardState = captureResult.newBoard;
 
-      // Add captured stones to returned piles
-      newBlackReturned += captureResult.blackCaptured;
-      newWhiteReturned += captureResult.whiteCaptured;
+      // Update captured counts and onBoard counts
+      // blackCaptured = number of BLACK stones captured → goes to WHITE's captured count
+      // whiteCaptured = number of WHITE stones captured → goes to BLACK's captured count
+      if (captureResult.blackCaptured > 0) {
+        newWhiteCaptured += captureResult.blackCaptured;  // White captured black stones
+        newBlackOnBoard -= captureResult.blackCaptured;   // Black has fewer on board
+      }
+      if (captureResult.whiteCaptured > 0) {
+        newBlackCaptured += captureResult.whiteCaptured;  // Black captured white stones
+        newWhiteOnBoard -= captureResult.whiteCaptured;   // White has fewer on board
+      }
 
       // Update Ko point if a Ko situation was created
       if (captureResult.koPoint) {
@@ -209,8 +244,10 @@ export async function POST(
       boardState: newBoardState,
       blackPotCount: newBlackPotCount,
       whitePotCount: newWhitePotCount,
-      blackReturned: newBlackReturned,
-      whiteReturned: newWhiteReturned,
+      blackCaptured: newBlackCaptured,
+      whiteCaptured: newWhiteCaptured,
+      blackOnBoard: newBlackOnBoard,
+      whiteOnBoard: newWhiteOnBoard,
       lastMoveX: newLastMoveX,
       lastMoveY: newLastMoveY,
       koPointX: newKoPointX,
@@ -223,8 +260,10 @@ export async function POST(
       boardState: newBoardState,
       blackPotCount: newBlackPotCount,
       whitePotCount: newWhitePotCount,
-      blackReturned: newBlackReturned,
-      whiteReturned: newWhiteReturned,
+      blackCaptured: newBlackCaptured,
+      whiteCaptured: newWhiteCaptured,
+      blackOnBoard: newBlackOnBoard,
+      whiteOnBoard: newWhiteOnBoard,
       lastMoveX: newLastMoveX,
       lastMoveY: newLastMoveY,
       koPointX: newKoPointX,

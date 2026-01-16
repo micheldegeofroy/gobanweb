@@ -3,21 +3,37 @@ import { db } from '@/lib/db';
 import { crazyGames } from '@/lib/db/schema';
 import { generateKeyPair, generateGameId } from '@/lib/crypto/keys';
 import { createEmptyBoard } from '@/lib/game/logic';
+import { lt } from 'drizzle-orm';
 
 // Stone counts for 4 players based on board size
+// Black (Player 1) gets the extra stone
 function getCrazyStoneCount(boardSize: number): { black: number; white: number; brown: number; grey: number } {
-  if (boardSize === 9) return { black: 20, white: 20, brown: 20, grey: 21 };
-  if (boardSize === 13) return { black: 42, white: 42, brown: 42, grey: 43 };
-  return { black: 91, white: 90, brown: 90, grey: 90 }; // 19x19 - roughly 361/4
+  if (boardSize === 9) return { black: 21, white: 20, brown: 20, grey: 20 };   // 81 total
+  if (boardSize === 13) return { black: 43, white: 42, brown: 42, grey: 42 }; // 169 total
+  return { black: 91, white: 90, brown: 90, grey: 90 }; // 19x19 - 361 total
 }
 
 // POST /api/crazy - Create a new 4-player crazy board
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const boardSize = body.boardSize || 19;
+    // Clean up games older than 1 year (runs in background, don't await)
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    db.delete(crazyGames).where(lt(crazyGames.createdAt, oneYearAgo)).catch((error) => {
+      console.error('Background cleanup failed for crazy games:', error);
+    });
 
-    // Validate board size
+    const body = await request.json();
+    const boardSize = body.boardSize ?? 19;
+
+    // Validate board size type and value
+    if (typeof boardSize !== 'number' || !Number.isInteger(boardSize)) {
+      return NextResponse.json(
+        { error: 'Invalid board size. Must be an integer.' },
+        { status: 400 }
+      );
+    }
+
     if (![9, 13, 19].includes(boardSize)) {
       return NextResponse.json(
         { error: 'Invalid board size. Must be 9, 13, or 19.' },

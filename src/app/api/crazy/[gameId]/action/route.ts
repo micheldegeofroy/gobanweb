@@ -1,137 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { crazyGames, crazyActions } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { verifyKeyPair } from '@/lib/crypto/keys';
 import { randomUUID } from 'crypto';
+import { errorResponse, ERROR_IDS } from '@/lib/errors';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rateLimit';
+import {
+  getAdjacentSquare,
+  getGroupSquare,
+  countLibertiesSquare,
+  wouldBeSuicideSquare,
+  detectAndRemoveCaptures,
+  type GenericBoard,
+  type Position,
+} from '@/lib/game/shared';
 
-type CrazyStone = 0 | 1 | 2 | 3 | null; // 0=black, 1=white, 2=brown, 3=grey
+type CrazyStone = 0 | 1 | 2 | 3 | null;
 type CrazyBoard = CrazyStone[][];
-type Position = { x: number; y: number };
-
-// Get adjacent positions
-function getAdjacent(pos: Position, boardSize: number): Position[] {
-  const adjacent: Position[] = [];
-  const { x, y } = pos;
-  if (x > 0) adjacent.push({ x: x - 1, y });
-  if (x < boardSize - 1) adjacent.push({ x: x + 1, y });
-  if (y > 0) adjacent.push({ x, y: y - 1 });
-  if (y < boardSize - 1) adjacent.push({ x, y: y + 1 });
-  return adjacent;
-}
-
-// Get connected group of same color
-function getGroup(board: CrazyBoard, start: Position): Position[] {
-  const boardSize = board.length;
-  const color = board[start.y][start.x];
-  if (color === null) return [];
-
-  const group: Position[] = [];
-  const visited = new Set<string>();
-  const queue: Position[] = [start];
-
-  while (queue.length > 0) {
-    const pos = queue.shift()!;
-    const key = `${pos.x},${pos.y}`;
-    if (visited.has(key)) continue;
-    if (board[pos.y][pos.x] !== color) continue;
-    visited.add(key);
-    group.push(pos);
-    for (const adj of getAdjacent(pos, boardSize)) {
-      if (!visited.has(`${adj.x},${adj.y}`)) {
-        queue.push(adj);
-      }
-    }
-  }
-  return group;
-}
-
-// Count liberties of a group
-function countLiberties(board: CrazyBoard, group: Position[]): number {
-  const boardSize = board.length;
-  const liberties = new Set<string>();
-  for (const pos of group) {
-    for (const adj of getAdjacent(pos, boardSize)) {
-      if (board[adj.y][adj.x] === null) {
-        liberties.add(`${adj.x},${adj.y}`);
-      }
-    }
-  }
-  return liberties.size;
-}
-
-// Check if placing stone would be suicide (4-player version)
-function wouldBeSuicide(board: CrazyBoard, x: number, y: number, color: CrazyStone): boolean {
-  if (color === null) return false;
-  const boardSize = board.length;
-  const testBoard = board.map(row => [...row]) as CrazyBoard;
-  testBoard[y][x] = color;
-
-  // Check if this placement captures any opponent stones (any other color)
-  const adjacentPositions = getAdjacent({ x, y }, boardSize);
-  for (const adj of adjacentPositions) {
-    const adjColor = testBoard[adj.y][adj.x];
-    if (adjColor !== null && adjColor !== color) {
-      const group = getGroup(testBoard, adj);
-      if (countLiberties(testBoard, group) === 0) {
-        return false; // Captures, so not suicide
-      }
-    }
-  }
-
-  // Check if placed stone's group has liberties
-  const placedGroup = getGroup(testBoard, { x, y });
-  return countLiberties(testBoard, placedGroup) === 0;
-}
-
-// Detect and remove captures (4-player version)
-function detectAndRemoveCaptures(board: CrazyBoard, lastPlacedX?: number, lastPlacedY?: number): {
-  newBoard: CrazyBoard;
-  captured: { black: number; white: number; brown: number; grey: number };
-  koPoint: Position | null;
-} {
-  const boardSize = board.length;
-  const newBoard = board.map(row => [...row]) as CrazyBoard;
-  const visited = new Set<string>();
-  const captured = { black: 0, white: 0, brown: 0, grey: 0 };
-  const capturedPositions: Position[] = [];
-
-  for (let y = 0; y < boardSize; y++) {
-    for (let x = 0; x < boardSize; x++) {
-      const stone = newBoard[y][x];
-      if (stone === null) continue;
-      const key = `${x},${y}`;
-      if (visited.has(key)) continue;
-
-      const group = getGroup(newBoard, { x, y });
-      for (const pos of group) {
-        visited.add(`${pos.x},${pos.y}`);
-      }
-
-      if (countLiberties(newBoard, group) === 0) {
-        for (const pos of group) {
-          newBoard[pos.y][pos.x] = null;
-          capturedPositions.push(pos);
-        }
-        if (stone === 0) captured.black += group.length;
-        else if (stone === 1) captured.white += group.length;
-        else if (stone === 2) captured.brown += group.length;
-        else if (stone === 3) captured.grey += group.length;
-      }
-    }
-  }
-
-  // Ko detection
-  let koPoint: Position | null = null;
-  if (capturedPositions.length === 1 && lastPlacedX !== undefined && lastPlacedY !== undefined) {
-    const capturingGroup = getGroup(newBoard, { x: lastPlacedX, y: lastPlacedY });
-    if (capturingGroup.length === 1 && countLiberties(newBoard, capturingGroup) === 1) {
-      koPoint = capturedPositions[0];
-    }
-  }
-
-  return { newBoard, captured, koPoint };
-}
 
 // POST /api/crazy/[gameId]/action
 export async function POST(
@@ -140,6 +26,25 @@ export async function POST(
 ) {
   try {
     const { gameId } = await params;
+
+    // Rate limiting
+    const clientIP = getClientIP(request);
+    const rateLimitKey = `crazy:action:${gameId}:${clientIP}`;
+    const rateLimitResult = checkRateLimit(rateLimitKey, RATE_LIMITS.gameAction);
+
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please slow down.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(rateLimitResult.resetTime),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const { privateKey, actionType, stoneColor, fromX, fromY, toX, toY } = body;
 
@@ -164,32 +69,32 @@ export async function POST(
 
     const boardState = game[0].boardState as CrazyBoard;
     const boardSize = game[0].boardSize;
-    let newBoardState = boardState.map(row => [...row]) as CrazyBoard;
+    let newBoardState = boardState.map(row => [...row]) as GenericBoard;
     let newBlackPotCount = game[0].blackPotCount;
     let newWhitePotCount = game[0].whitePotCount;
     let newBrownPotCount = game[0].brownPotCount;
     let newGreyPotCount = game[0].greyPotCount;
-    let newBlackReturned = game[0].blackReturned;
-    let newWhiteReturned = game[0].whiteReturned;
-    let newBrownReturned = game[0].brownReturned;
-    let newGreyReturned = game[0].greyReturned;
+    let newBlackCaptured = game[0].blackCaptured;
+    let newWhiteCaptured = game[0].whiteCaptured;
+    let newBrownCaptured = game[0].brownCaptured;
+    let newGreyCaptured = game[0].greyCaptured;
     let newLastMoveX: number | null = game[0].lastMoveX;
     let newLastMoveY: number | null = game[0].lastMoveY;
     let newKoPointX: number | null = null;
     let newKoPointY: number | null = null;
     const currentKoPointX = game[0].koPointX;
     const currentKoPointY = game[0].koPointY;
-    let currentTurn = game[0].currentTurn; // 0=black, 1=white, 2=black-cross, 3=white-cross
-    let moveNumber = game[0].moveNumber;
+    let currentTurn = game[0].currentTurn;
 
     switch (actionType) {
       case 'place': {
         if (typeof stoneColor !== 'number' || ![0, 1, 2, 3].includes(stoneColor)) {
           return NextResponse.json({ error: 'Invalid stone color' }, { status: 400 });
         }
-        // Enforce turn order: 0=black, 1=white, 2=black-cross, 3=white-cross
+        // Enforce turn order
         if (stoneColor !== currentTurn) {
-          return NextResponse.json({ error: 'Not your turn' }, { status: 400 });
+          const err = await errorResponse(ERROR_IDS.CRAZY_NOT_YOUR_TURN, 'Not your turn', 400);
+          if (err) return err;
         }
         if (typeof toX !== 'number' || typeof toY !== 'number') {
           return NextResponse.json({ error: 'Invalid position' }, { status: 400 });
@@ -202,45 +107,38 @@ export async function POST(
         }
 
         // Check pot has stones
-        const totals = {
-          0: newBlackPotCount + newBlackReturned,
-          1: newWhitePotCount + newWhiteReturned,
-          2: newBrownPotCount + newBrownReturned,
-          3: newGreyPotCount + newGreyReturned,
+        const potCounts = {
+          0: newBlackPotCount,
+          1: newWhitePotCount,
+          2: newBrownPotCount,
+          3: newGreyPotCount,
         };
 
-        if (totals[stoneColor as 0|1|2|3] <= 0) {
+        if (potCounts[stoneColor as 0|1|2|3] <= 0) {
           return NextResponse.json({ error: 'No stones of this color in pot' }, { status: 400 });
         }
 
         // Check suicide
-        if (wouldBeSuicide(newBoardState, toX, toY, stoneColor as CrazyStone)) {
-          return NextResponse.json({ error: 'Suicide move not allowed' }, { status: 400 });
+        if (wouldBeSuicideSquare(newBoardState, toX, toY, stoneColor, boardSize)) {
+          const err = await errorResponse(ERROR_IDS.CRAZY_SUICIDE_NOT_ALLOWED, 'Suicide move not allowed', 400);
+          if (err) return err;
         }
 
         // Check Ko
         if (currentKoPointX !== null && currentKoPointY !== null && toX === currentKoPointX && toY === currentKoPointY) {
-          return NextResponse.json({ error: 'Ko rule violation' }, { status: 400 });
+          const err = await errorResponse(ERROR_IDS.CRAZY_KO_VIOLATION, 'Ko rule violation', 400);
+          if (err) return err;
         }
 
         // Place stone
-        newBoardState[toY][toX] = stoneColor as CrazyStone;
-        if (stoneColor === 0) {
-          if (newBlackReturned > 0) newBlackReturned--;
-          else newBlackPotCount--;
-        } else if (stoneColor === 1) {
-          if (newWhiteReturned > 0) newWhiteReturned--;
-          else newWhitePotCount--;
-        } else if (stoneColor === 2) {
-          if (newBrownReturned > 0) newBrownReturned--;
-          else newBrownPotCount--;
-        } else if (stoneColor === 3) {
-          if (newGreyReturned > 0) newGreyReturned--;
-          else newGreyPotCount--;
-        }
+        newBoardState[toY][toX] = stoneColor;
+        if (stoneColor === 0) newBlackPotCount--;
+        else if (stoneColor === 1) newWhitePotCount--;
+        else if (stoneColor === 2) newBrownPotCount--;
+        else if (stoneColor === 3) newGreyPotCount--;
+
         newLastMoveX = toX;
         newLastMoveY = toY;
-        // Advance turn: 0->1->2->3->0
         currentTurn = (currentTurn + 1) % 4;
         break;
       }
@@ -259,10 +157,10 @@ export async function POST(
         }
 
         newBoardState[fromY][fromX] = null;
-        if (stone === 0) newBlackReturned++;
-        else if (stone === 1) newWhiteReturned++;
-        else if (stone === 2) newBrownReturned++;
-        else if (stone === 3) newGreyReturned++;
+        if (stone === 0) newBlackPotCount++;
+        else if (stone === 1) newWhitePotCount++;
+        else if (stone === 2) newBrownPotCount++;
+        else if (stone === 3) newGreyPotCount++;
         break;
       }
 
@@ -291,10 +189,11 @@ export async function POST(
           return NextResponse.json({ error: 'To position is occupied' }, { status: 400 });
         }
 
-        const testBoard = newBoardState.map(row => [...row]) as CrazyBoard;
+        const testBoard = newBoardState.map(row => [...row]) as GenericBoard;
         testBoard[fromY][fromX] = null;
-        if (wouldBeSuicide(testBoard, toX, toY, stone)) {
-          return NextResponse.json({ error: 'Suicide move not allowed' }, { status: 400 });
+        if (wouldBeSuicideSquare(testBoard, toX, toY, stone, boardSize)) {
+          const err = await errorResponse(ERROR_IDS.CRAZY_SUICIDE_NOT_ALLOWED, 'Suicide move not allowed', 400);
+          if (err) return err;
         }
 
         newBoardState[fromY][fromX] = null;
@@ -302,21 +201,32 @@ export async function POST(
         break;
       }
 
-      default:
-        return NextResponse.json({ error: 'Invalid action type' }, { status: 400 });
+      default: {
+        const err = await errorResponse(ERROR_IDS.CRAZY_INVALID_ACTION, 'Invalid action type', 400);
+        if (err) return err;
+      }
     }
 
     // Check for captures after place or move
     if (actionType === 'place' || actionType === 'move') {
       const placedX = toX as number;
       const placedY = toY as number;
-      const captureResult = detectAndRemoveCaptures(newBoardState, placedX, placedY);
+      const captureResult = detectAndRemoveCaptures(newBoardState, boardSize, boardSize, placedX, placedY);
       newBoardState = captureResult.newBoard;
 
-      newBlackReturned += captureResult.captured.black;
-      newWhiteReturned += captureResult.captured.white;
-      newBrownReturned += captureResult.captured.brown;
-      newGreyReturned += captureResult.captured.grey;
+      // Japanese scoring: captured stones go to the capturing player's score
+      const capturingColor = actionType === 'place' ? stoneColor : newBoardState[placedY][placedX];
+      let totalCaptured = 0;
+      captureResult.capturedByColor.forEach((count) => {
+        totalCaptured += count;
+      });
+
+      if (totalCaptured > 0 && capturingColor !== null && capturingColor !== undefined) {
+        if (capturingColor === 0) newBlackCaptured += totalCaptured;
+        else if (capturingColor === 1) newWhiteCaptured += totalCaptured;
+        else if (capturingColor === 2) newBrownCaptured += totalCaptured;
+        else if (capturingColor === 3) newGreyCaptured += totalCaptured;
+      }
 
       if (captureResult.koPoint) {
         newKoPointX = captureResult.koPoint.x;
@@ -324,8 +234,30 @@ export async function POST(
       }
     }
 
+    // Use SQL increment to avoid race condition on moveNumber
+    // First, atomically increment and get the new value
+    const updateResult = await db.update(crazyGames).set({
+      boardState: newBoardState as CrazyBoard,
+      blackPotCount: newBlackPotCount,
+      whitePotCount: newWhitePotCount,
+      brownPotCount: newBrownPotCount,
+      greyPotCount: newGreyPotCount,
+      blackCaptured: newBlackCaptured,
+      whiteCaptured: newWhiteCaptured,
+      brownCaptured: newBrownCaptured,
+      greyCaptured: newGreyCaptured,
+      lastMoveX: newLastMoveX,
+      lastMoveY: newLastMoveY,
+      koPointX: newKoPointX,
+      koPointY: newKoPointY,
+      currentTurn: currentTurn,
+      moveNumber: sql`${crazyGames.moveNumber} + 1`,
+      updatedAt: new Date(),
+    }).where(eq(crazyGames.id, gameId)).returning({ moveNumber: crazyGames.moveNumber });
+
+    const newMoveNumber = updateResult[0]?.moveNumber ?? game[0].moveNumber + 1;
+
     // Log the action for replay
-    moveNumber++;
     await db.insert(crazyActions).values({
       id: randomUUID(),
       gameId,
@@ -335,28 +267,8 @@ export async function POST(
       fromY: fromY ?? null,
       toX: toX ?? null,
       toY: toY ?? null,
-      moveNumber,
+      moveNumber: newMoveNumber,
     });
-
-    // Update the board
-    await db.update(crazyGames).set({
-      boardState: newBoardState,
-      blackPotCount: newBlackPotCount,
-      whitePotCount: newWhitePotCount,
-      brownPotCount: newBrownPotCount,
-      greyPotCount: newGreyPotCount,
-      blackReturned: newBlackReturned,
-      whiteReturned: newWhiteReturned,
-      brownReturned: newBrownReturned,
-      greyReturned: newGreyReturned,
-      lastMoveX: newLastMoveX,
-      lastMoveY: newLastMoveY,
-      koPointX: newKoPointX,
-      koPointY: newKoPointY,
-      currentTurn: currentTurn,
-      moveNumber: moveNumber,
-      updatedAt: new Date(),
-    }).where(eq(crazyGames.id, gameId));
 
     return NextResponse.json({
       success: true,
@@ -365,16 +277,16 @@ export async function POST(
       whitePotCount: newWhitePotCount,
       brownPotCount: newBrownPotCount,
       greyPotCount: newGreyPotCount,
-      blackReturned: newBlackReturned,
-      whiteReturned: newWhiteReturned,
-      brownReturned: newBrownReturned,
-      greyReturned: newGreyReturned,
+      blackCaptured: newBlackCaptured,
+      whiteCaptured: newWhiteCaptured,
+      brownCaptured: newBrownCaptured,
+      greyCaptured: newGreyCaptured,
       lastMoveX: newLastMoveX,
       lastMoveY: newLastMoveY,
       koPointX: newKoPointX,
       koPointY: newKoPointY,
       currentTurn: currentTurn,
-      moveNumber: moveNumber,
+      moveNumber: newMoveNumber,
     });
   } catch (error) {
     console.error('Error performing action:', error);

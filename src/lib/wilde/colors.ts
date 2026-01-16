@@ -50,7 +50,21 @@ export function createEmptyBoard(width: number, height: number): (number | null)
 }
 
 // Initialize stone pots for all players
-export function initializeStonePots(width: number, height: number, playerCount: number) {
+// Structure: { potCount: available, captured: opponent stones taken, onBoard: own stones on board }
+export function initializeStonePots(width: number, height: number, playerCount: number, stonesPerPlayer?: number | null) {
+  if (stonesPerPlayer !== null && stonesPerPlayer !== undefined) {
+    // Use custom stone count for all players
+    return Array.from({ length: playerCount }, () => ({
+      potCount: stonesPerPlayer,
+      captured: 0,  // Opponent stones captured (Japanese scoring)
+      onBoard: 0    // Own stones on board (Chinese scoring)
+    }));
+  }
+  // Auto-calculate based on board size
   const counts = calculateStoneCounts(width, height, playerCount);
-  return counts.map(count => ({ potCount: count, returned: 0 }));
+  return counts.map(count => ({
+    potCount: count,
+    captured: 0,  // Opponent stones captured (Japanese scoring)
+    onBoard: 0    // Own stones on board (Chinese scoring)
+  }));
 }

@@ -36,10 +36,14 @@ export async function POST(
     const boardSize = game[0].boardSize;
     const emptyBoard = Array(boardSize).fill(null).map(() => Array(boardSize).fill(null));
 
-    // Calculate initial pot counts based on board size
-    const totalStones = boardSize === 9 ? 41 : boardSize === 13 ? 85 : 181;
-    const perPlayer = Math.floor(totalStones / 4);
-    const extraForBlack = totalStones % 4 > 0 ? 1 : 0;
+    // Calculate initial pot counts based on board size (total intersections)
+    // Black (Player 1) gets the extra stone
+    const getCrazyStones = (size: number) => {
+      if (size === 9) return { black: 21, white: 20, brown: 20, grey: 20 };   // 81 total
+      if (size === 13) return { black: 43, white: 42, brown: 42, grey: 42 }; // 169 total
+      return { black: 91, white: 90, brown: 90, grey: 90 }; // 361 total
+    };
+    const stones = getCrazyStones(boardSize);
 
     // Delete all actions for this game
     await db.delete(crazyActions).where(eq(crazyActions.gameId, gameId));
@@ -47,14 +51,14 @@ export async function POST(
     // Reset the board
     await db.update(crazyGames).set({
       boardState: emptyBoard,
-      blackPotCount: perPlayer + extraForBlack,
-      whitePotCount: perPlayer,
-      brownPotCount: perPlayer,
-      greyPotCount: perPlayer,
-      blackReturned: 0,
-      whiteReturned: 0,
-      brownReturned: 0,
-      greyReturned: 0,
+      blackPotCount: stones.black,
+      whitePotCount: stones.white,
+      brownPotCount: stones.brown,
+      greyPotCount: stones.grey,
+      blackCaptured: 0,
+      whiteCaptured: 0,
+      brownCaptured: 0,
+      greyCaptured: 0,
       lastMoveX: null,
       lastMoveY: null,
       koPointX: null,
@@ -67,14 +71,14 @@ export async function POST(
     return NextResponse.json({
       success: true,
       boardState: emptyBoard,
-      blackPotCount: perPlayer + extraForBlack,
-      whitePotCount: perPlayer,
-      brownPotCount: perPlayer,
-      greyPotCount: perPlayer,
-      blackReturned: 0,
-      whiteReturned: 0,
-      brownReturned: 0,
-      greyReturned: 0,
+      blackPotCount: stones.black,
+      whitePotCount: stones.white,
+      brownPotCount: stones.brown,
+      greyPotCount: stones.grey,
+      blackCaptured: 0,
+      whiteCaptured: 0,
+      brownCaptured: 0,
+      greyCaptured: 0,
       lastMoveX: null,
       lastMoveY: null,
       koPointX: null,
