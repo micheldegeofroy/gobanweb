@@ -145,20 +145,15 @@ export default function CrazyGoHome() {
 
         {/* Crazy Go Rules */}
         <div className="max-w-md mx-auto mt-12 text-center">
-          <h3 className="text-xl font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
+          <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300 mb-3">
             Crazy Go Rules
           </h3>
-          <div className="bg-white/50 dark:bg-zinc-800/50 rounded-xl p-6">
-            <ul className="text-sm text-zinc-600 dark:text-zinc-400 space-y-2 text-left">
-              <li>• <strong>4 Players</strong> - Black → White → White-Cross → Black-Cross</li>
-              <li>• <strong>Turn Order</strong> - Highlighted pot shows current player</li>
-              <li>• <strong>No Alliances</strong> - Cooperate or attack anyone freely</li>
-              <li>• <strong>Capturing</strong> - Surround to capture, captor scores points</li>
-              <li>• <strong>Ko Rule</strong> - No immediate recapture of single stones</li>
-              <li>• <strong>Crossfire</strong> - Multiple players can threaten one group</li>
-              <li>• <strong>Kingmaker</strong> - Avoid deciding who wins if you can&apos;t</li>
-            </ul>
-          </div>
+          <ul className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1 text-left px-4">
+            <li>• <strong>4 Players</strong> - Black → White → White-Cross → Black-Cross</li>
+            <li>• <strong>Turn Order</strong> - Highlighted pot shows current player</li>
+            <li>• <strong>Capturing</strong> - Surround to capture, no fixed alliances</li>
+            <li>• <strong>Ko Rule</strong> - No immediate recapture of single stones</li>
+          </ul>
         </div>
 
         {/* Features */}
