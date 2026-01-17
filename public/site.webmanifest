@@ -1,12 +1,15 @@
 {
   "name": "Goban Web - Play Go Online",
   "short_name": "Goban",
-  "description": "Play Go (Baduk/Weiqi) instantly on any device. No login required.",
+  "description": "Play Go (Baduk/Weiqi) instantly on any device. No login required. Share a link and play with friends.",
   "start_url": "/",
+  "id": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
   "theme_color": "#DEB887",
   "background_color": "#1a1a1a",
+  "scope": "/",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -25,10 +28,40 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
-  "categories": ["games", "entertainment"],
-  "screenshots": [],
-  "related_applications": [],
-  "prefer_related_applications": false
+  "categories": ["games", "entertainment", "board games"],
+  "shortcuts": [
+    {
+      "name": "New Game",
+      "short_name": "New",
+      "description": "Start a new Go game",
+      "url": "/",
+      "icons": [{"src": "/android-chrome-192x192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Crazy Go",
+      "short_name": "Crazy",
+      "description": "4-player Go variant",
+      "url": "/crazy",
+      "icons": [{"src": "/android-chrome-192x192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Wilde Go",
+      "short_name": "Wilde",
+      "description": "2-8 player Go variant",
+      "url": "/wilde",
+      "icons": [{"src": "/android-chrome-192x192.png", "sizes": "192x192"}]
+    }
+  ],
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }
