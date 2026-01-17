@@ -6,7 +6,6 @@ import CrazyGoBoard, { CrazyHeldStone } from '@/components/CrazyGoBoard';
 import CrazyStonePot from '@/components/CrazyStonePot';
 import { useDeviceType } from '@/hooks/useDeviceType';
 import { useHapticFeedback } from '@/hooks/useHapticFeedback';
-import { CrazyRulesModal } from '@/components/CrazyRulesModal';
 
 type CrazyStone = 0 | 1 | 2 | 3 | null;
 type CrazyBoard = CrazyStone[][];
@@ -208,9 +207,6 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
   const [copied, setCopied] = useState(false);
   const [heldStone, setHeldStone] = useState<CrazyHeldStone | null>(null);
   const hasInitialized = useRef(false);
-
-  // Rules modal state
-  const [showRules, setShowRules] = useState(false);
 
   // Replay state
   const [isReplayMode, setIsReplayMode] = useState(false);
@@ -878,12 +874,6 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
       >
         {copied ? 'COPIED!' : 'SHARE'}
       </button>
-      <button
-        onClick={() => setShowRules(true)}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
-        RULES
-      </button>
     </>
   );
 
@@ -967,9 +957,6 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           </div>
         )}
       </div>
-
-      {/* Rules Modal */}
-      <CrazyRulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
     </div>
   );
 }
