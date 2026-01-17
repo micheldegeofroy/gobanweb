@@ -320,17 +320,6 @@ export default function WildeGoBoard({
       }
     }
 
-    // Last move indicator (rainbow ring)
-    if (lastMove && board[lastMove.y][lastMove.x] !== null) {
-      const cx = padding + lastMove.x * cellSizeX;
-      const cy = padding + lastMove.y * cellSizeY;
-      ctx.strokeStyle = '#FF1493'; // Deep pink
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(cx, cy, cellSize * 0.35, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
     // Ghost stone preview
     if (heldStone && hoverPos && board[hoverPos.y][hoverPos.x] === null) {
       const cx = padding + hoverPos.x * cellSizeX;
@@ -361,7 +350,7 @@ export default function WildeGoBoard({
         drawStone(ctx, cx, cy, heldStone.color, cellSize * 0.45);
       }
     }
-  }, [board, width, height, canvasWidth, canvasHeight, heldStone, lastMove, hoverPos, mousePos, cellSize, cellSizeX, cellSizeY, padding, drawStone, getStarPoints]);
+  }, [board, width, height, canvasWidth, canvasHeight, heldStone, hoverPos, mousePos, cellSize, cellSizeX, cellSizeY, padding, drawStone, getStarPoints]);
 
   // Handle resize
   useEffect(() => {

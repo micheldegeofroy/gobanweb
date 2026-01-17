@@ -54,16 +54,17 @@ export async function POST(
       .limit(1);
 
     if (game.length === 0) {
+      const err = await errorResponse(ERROR_IDS.NORMAL_GAME_NOT_FOUND, 'Game not found', 404);
+      if (err) return err;
       return NextResponse.json({ error: 'Game not found' }, { status: 404 });
     }
 
     // Verify the private key
     const isValid = await verifyKeyPair(game[0].publicKey, privateKey);
     if (!isValid) {
-      return NextResponse.json(
-        { error: 'Invalid private key' },
-        { status: 401 }
-      );
+      const err = await errorResponse(ERROR_IDS.NORMAL_INVALID_PRIVATE_KEY, 'Invalid private key', 401);
+      if (err) return err;
+      return NextResponse.json({ error: 'Invalid private key' }, { status: 401 });
     }
 
     const boardState = game[0].boardState as Board;
@@ -86,33 +87,49 @@ export async function POST(
       case 'place': {
         // Place a stone from pot to board
         if (typeof stoneColor !== 'number' || ![0, 1].includes(stoneColor)) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_INVALID_STONE_COLOR, 'Invalid stone color', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Invalid stone color' }, { status: 400 });
         }
         if (typeof toX !== 'number' || typeof toY !== 'number') {
+          const err = await errorResponse(ERROR_IDS.NORMAL_INVALID_POSITION, 'Invalid position', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Invalid position' }, { status: 400 });
         }
         if (toX < 0 || toX >= boardSize || toY < 0 || toY >= boardSize) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_POSITION_OUT_OF_BOUNDS, 'Position out of bounds', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Position out of bounds' }, { status: 400 });
         }
         if (newBoardState[toY][toX] !== null) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_POSITION_OCCUPIED, 'Position is occupied', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Position is occupied' }, { status: 400 });
         }
 
         // Check pot has stones available
         if (stoneColor === 0 && newBlackPotCount <= 0) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_NO_BLACK_STONES, 'No black stones in pot', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'No black stones in pot' }, { status: 400 });
         }
         if (stoneColor === 1 && newWhitePotCount <= 0) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_NO_WHITE_STONES, 'No white stones in pot', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'No white stones in pot' }, { status: 400 });
         }
 
         // Check if this would be suicide (no liberties and doesn't capture)
         if (wouldBeSuicide(newBoardState, toX, toY, stoneColor as 0 | 1)) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_SUICIDE_NOT_ALLOWED, 'Cannot place stone with no liberties unless it captures', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Cannot place stone with no liberties unless it captures' }, { status: 400 });
         }
 
         // Check Ko rule - cannot play on Ko point
         if (currentKoPointX !== null && currentKoPointY !== null && toX === currentKoPointX && toY === currentKoPointY) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_KO_VIOLATION, 'Ko rule violation - cannot recapture immediately', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Ko rule violation - cannot recapture immediately' }, { status: 400 });
         }
 
@@ -134,14 +151,20 @@ export async function POST(
       case 'remove': {
         // Remove a stone from board to returned pile
         if (typeof fromX !== 'number' || typeof fromY !== 'number') {
+          const err = await errorResponse(ERROR_IDS.NORMAL_INVALID_FROM_POSITION, 'Invalid position', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Invalid position' }, { status: 400 });
         }
         if (fromX < 0 || fromX >= boardSize || fromY < 0 || fromY >= boardSize) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_FROM_OUT_OF_BOUNDS, 'Position out of bounds', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Position out of bounds' }, { status: 400 });
         }
 
         const stone = newBoardState[fromY][fromX];
         if (stone === null) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_NO_STONE_AT_POSITION, 'No stone at position', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'No stone at position' }, { status: 400 });
         }
 
@@ -160,26 +183,40 @@ export async function POST(
       case 'move': {
         // Move a stone on the board
         if (typeof fromX !== 'number' || typeof fromY !== 'number') {
+          const err = await errorResponse(ERROR_IDS.NORMAL_INVALID_FROM_POSITION, 'Invalid from position', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Invalid from position' }, { status: 400 });
         }
         if (typeof toX !== 'number' || typeof toY !== 'number') {
+          const err = await errorResponse(ERROR_IDS.NORMAL_INVALID_TO_POSITION, 'Invalid to position', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Invalid to position' }, { status: 400 });
         }
         if (fromX < 0 || fromX >= boardSize || fromY < 0 || fromY >= boardSize) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_FROM_OUT_OF_BOUNDS, 'From position out of bounds', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'From position out of bounds' }, { status: 400 });
         }
         if (toX < 0 || toX >= boardSize || toY < 0 || toY >= boardSize) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_TO_OUT_OF_BOUNDS, 'To position out of bounds', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'To position out of bounds' }, { status: 400 });
         }
         if (fromX === toX && fromY === toY) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_SAME_POSITION, 'Cannot move to same position', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Cannot move to same position' }, { status: 400 });
         }
 
         const stone = newBoardState[fromY][fromX];
         if (stone === null) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_NO_STONE_FROM, 'No stone at from position', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'No stone at from position' }, { status: 400 });
         }
         if (newBoardState[toY][toX] !== null) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_TO_OCCUPIED, 'To position is occupied', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'To position is occupied' }, { status: 400 });
         }
 
@@ -188,6 +225,8 @@ export async function POST(
         const testBoard = newBoardState.map(row => [...row]);
         testBoard[fromY][fromX] = null;
         if (wouldBeSuicide(testBoard, toX, toY, stone as 0 | 1)) {
+          const err = await errorResponse(ERROR_IDS.NORMAL_MOVE_SUICIDE, 'Cannot move stone to position with no liberties unless it captures', 400);
+          if (err) return err;
           return NextResponse.json({ error: 'Cannot move stone to position with no liberties unless it captures' }, { status: 400 });
         }
 
@@ -197,8 +236,11 @@ export async function POST(
         break;
       }
 
-      default:
+      default: {
+        const err = await errorResponse(ERROR_IDS.NORMAL_INVALID_ACTION, 'Invalid action type', 400);
+        if (err) return err;
         return NextResponse.json({ error: 'Invalid action type' }, { status: 400 });
+      }
     }
 
     // After place or move, check for captures

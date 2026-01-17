@@ -228,6 +228,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
   const privateKeyRef = useRef<string | null>(null);
   const gameIdRef = useRef<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
+  const lastActionTime = useRef<number>(0); // Track when last action was performed
 
   // Keep refs in sync with state (single effect for all ref updates)
   useEffect(() => {
@@ -280,12 +281,37 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
     }
   }, [gameId, hasCheckedUrl, urlKey, fetchGame]);
 
-  // Poll for game updates - only depends on privateKey/gameId, not game state
-  // (privateKey is only set after initial game fetch succeeds)
+  // Poll for game updates (slower when tab is hidden, skip after recent actions)
   useEffect(() => {
     if (!privateKey || !gameId) return;
-    const interval = setInterval(() => fetchGame(gameId), 1000);
-    return () => clearInterval(interval);
+
+    let interval: NodeJS.Timeout;
+    const ACTIVE_POLL_MS = 2000;   // 2s when tab is visible
+    const HIDDEN_POLL_MS = 10000;  // 10s when tab is hidden
+    const ACTION_COOLDOWN_MS = 1500; // Skip polling for 1.5s after action
+
+    const pollIfReady = () => {
+      // Skip polling if we recently performed an action (server response is authoritative)
+      if (Date.now() - lastActionTime.current < ACTION_COOLDOWN_MS) return;
+      fetchGame(gameId);
+    };
+
+    const startPolling = (ms: number) => {
+      clearInterval(interval);
+      interval = setInterval(pollIfReady, ms);
+    };
+
+    const handleVisibility = () => {
+      startPolling(document.hidden ? HIDDEN_POLL_MS : ACTIVE_POLL_MS);
+    };
+
+    startPolling(document.hidden ? HIDDEN_POLL_MS : ACTIVE_POLL_MS);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [privateKey, gameId, fetchGame]);
 
   const performAction = useCallback(async (
@@ -299,6 +325,9 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
     }
   ) => {
     if (!privateKey || !gameId) return;
+
+    // Mark action time to prevent polling from overwriting with stale data
+    lastActionTime.current = Date.now();
 
     try {
       const res = await fetch(`/api/wilde/${gameId}/action`, {
@@ -314,18 +343,8 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
         return false;
       }
 
-      const data = await res.json();
-      setGame(prev => prev ? {
-        ...prev,
-        boardState: data.boardState,
-        stonePots: data.stonePots,
-        lastMoveX: data.lastMoveX,
-        lastMoveY: data.lastMoveY,
-        koPointX: data.koPointX,
-        koPointY: data.koPointY,
-        currentTurn: data.currentTurn,
-      } : null);
-
+      // Don't update state from server response - optimistic update already has correct data
+      // This prevents flicker from double state update. Next poll will sync if needed.
       return true;
     } catch (err) {
       console.error('Error performing action:', err);
@@ -370,6 +389,9 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
           if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color, game.boardWidth, game.boardHeight)) return;
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
 
+          // Block polling immediately to prevent stale data overwriting optimistic update
+          lastActionTime.current = Date.now();
+
           // Optimistic update for move
           const newBoard = game.boardState.map(row => [...row]) as WildeBoard;
           newBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
@@ -408,6 +430,9 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
           if (heldStone.color !== game.currentTurn) return;
           if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color, game.boardWidth, game.boardHeight)) return;
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
+
+          // Block polling immediately to prevent stale data overwriting optimistic update
+          lastActionTime.current = Date.now();
 
           // Optimistic update - place stone and detect captures
           const newBoard = game.boardState.map(row => [...row]) as WildeBoard;
@@ -920,7 +945,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
             onKeyDown={(e) => e.key === 'Enter' && handleKeySubmit()}
           />
           <div className="flex gap-3">
-            <button onClick={handleKeySubmit} className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-lg font-semibold hover:from-pink-600 hover:to-purple-600 transition-colors">
+            <button onClick={handleKeySubmit} className="flex-1 py-3 bg-white text-zinc-800 border border-zinc-300 rounded-lg font-semibold hover:bg-zinc-100 transition-colors">
               Join Board
             </button>
             <button onClick={() => router.push('/wilde')} className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-lg font-semibold hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors">

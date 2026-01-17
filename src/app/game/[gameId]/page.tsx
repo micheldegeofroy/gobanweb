@@ -81,6 +81,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   const [replayLastMove, setReplayLastMove] = useState<Position | null>(null);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActionTime = useRef<number>(0); // Track when last action was performed
 
   // Fetch game data
   const fetchGame = useCallback(async (gId: string) => {
@@ -135,12 +136,37 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     }
   }, [gameId, hasCheckedUrl, urlKey, fetchGame]);
 
-  // Poll for updates
+  // Poll for updates (slower when tab is hidden, skip after recent actions)
   useEffect(() => {
     if (!game || !privateKey || !gameId) return;
 
-    const interval = setInterval(() => fetchGame(gameId), 1000);
-    return () => clearInterval(interval);
+    let interval: NodeJS.Timeout;
+    const ACTIVE_POLL_MS = 2000;   // 2s when tab is visible
+    const HIDDEN_POLL_MS = 10000;  // 10s when tab is hidden
+    const ACTION_COOLDOWN_MS = 1500; // Skip polling for 1.5s after action
+
+    const pollIfReady = () => {
+      // Skip polling if we recently performed an action (server response is authoritative)
+      if (Date.now() - lastActionTime.current < ACTION_COOLDOWN_MS) return;
+      fetchGame(gameId);
+    };
+
+    const startPolling = (ms: number) => {
+      clearInterval(interval);
+      interval = setInterval(pollIfReady, ms);
+    };
+
+    const handleVisibility = () => {
+      startPolling(document.hidden ? HIDDEN_POLL_MS : ACTIVE_POLL_MS);
+    };
+
+    startPolling(document.hidden ? HIDDEN_POLL_MS : ACTIVE_POLL_MS);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [game, privateKey, gameId, fetchGame]);
 
   // Perform action on the server
@@ -155,6 +181,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     }
   ) => {
     if (!privateKey || !game) return;
+
+    // Mark action time to prevent polling from overwriting with stale data
+    lastActionTime.current = Date.now();
 
     try {
       const res = await fetch(`/api/games/${gameId}/action`, {
@@ -174,23 +203,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         return false;
       }
 
-      const data = await res.json();
-      // Update local state immediately for responsiveness
-      setGame(prev => prev ? {
-        ...prev,
-        boardState: data.boardState,
-        blackPotCount: data.blackPotCount,
-        whitePotCount: data.whitePotCount,
-        blackCaptured: data.blackCaptured,
-        whiteCaptured: data.whiteCaptured,
-        blackOnBoard: data.blackOnBoard,
-        whiteOnBoard: data.whiteOnBoard,
-        lastMoveX: data.lastMoveX,
-        lastMoveY: data.lastMoveY,
-        koPointX: data.koPointX,
-        koPointY: data.koPointY,
-      } : null);
-
+      // Don't update state from server response - optimistic update already has correct data
+      // This prevents flicker from double state update. Next poll will sync if needed.
       return true;
     } catch (err) {
       console.error('Error performing action:', err);
@@ -243,6 +257,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
             return;
           }
+          // Block polling immediately to prevent stale data overwriting optimistic update
+          lastActionTime.current = Date.now();
           // Optimistic update - show move immediately with captures
           const newBoard = game.boardState.map(row => [...row]);
           newBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
@@ -275,6 +291,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
             return;
           }
+          // Block polling immediately to prevent stale data overwriting optimistic update
+          lastActionTime.current = Date.now();
           // Optimistic update - show stone immediately with captures
           const newBoard = game.boardState.map(row => [...row]);
           newBoard[pos.y][pos.x] = heldStone.color;
@@ -628,7 +646,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           <div className="flex gap-3">
             <button
               onClick={handleKeySubmit}
-              className="flex-1 py-3 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-colors"
+              className="flex-1 py-3 bg-white text-zinc-800 border border-zinc-300 rounded-lg font-semibold hover:bg-zinc-100 transition-colors"
             >
               Join Board
             </button>

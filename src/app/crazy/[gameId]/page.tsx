@@ -214,6 +214,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
   const [replayBoard, setReplayBoard] = useState<CrazyBoard | null>(null);
   const [replayBoardSize, setReplayBoardSize] = useState(19);
   const replayIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActionTime = useRef<number>(0); // Track when last action was performed
 
   const fetchGame = useCallback(async (gId: string) => {
     try {
@@ -257,10 +258,37 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     }
   }, [gameId, hasCheckedUrl, urlKey, fetchGame]);
 
+  // Poll for updates (slower when tab is hidden, skip after recent actions)
   useEffect(() => {
     if (!game || !privateKey || !gameId) return;
-    const interval = setInterval(() => fetchGame(gameId), 1000);
-    return () => clearInterval(interval);
+
+    let interval: NodeJS.Timeout;
+    const ACTIVE_POLL_MS = 2000;   // 2s when tab is visible
+    const HIDDEN_POLL_MS = 10000;  // 10s when tab is hidden
+    const ACTION_COOLDOWN_MS = 1500; // Skip polling for 1.5s after action
+
+    const pollIfReady = () => {
+      // Skip polling if we recently performed an action (server response is authoritative)
+      if (Date.now() - lastActionTime.current < ACTION_COOLDOWN_MS) return;
+      fetchGame(gameId);
+    };
+
+    const startPolling = (ms: number) => {
+      clearInterval(interval);
+      interval = setInterval(pollIfReady, ms);
+    };
+
+    const handleVisibility = () => {
+      startPolling(document.hidden ? HIDDEN_POLL_MS : ACTIVE_POLL_MS);
+    };
+
+    startPolling(document.hidden ? HIDDEN_POLL_MS : ACTIVE_POLL_MS);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [game, privateKey, gameId, fetchGame]);
 
   const performAction = async (
@@ -274,6 +302,9 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     }
   ) => {
     if (!privateKey || !game) return;
+
+    // Mark action time to prevent polling from overwriting with stale data
+    lastActionTime.current = Date.now();
 
     try {
       const res = await fetch(`/api/crazy/${gameId}/action`, {
@@ -289,26 +320,8 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
         return false;
       }
 
-      const data = await res.json();
-      setGame(prev => prev ? {
-        ...prev,
-        boardState: data.boardState,
-        blackPotCount: data.blackPotCount,
-        whitePotCount: data.whitePotCount,
-        brownPotCount: data.brownPotCount,
-        greyPotCount: data.greyPotCount,
-        blackCaptured: data.blackCaptured,
-        whiteCaptured: data.whiteCaptured,
-        brownCaptured: data.brownCaptured,
-        greyCaptured: data.greyCaptured,
-        lastMoveX: data.lastMoveX,
-        lastMoveY: data.lastMoveY,
-        koPointX: data.koPointX,
-        koPointY: data.koPointY,
-        currentTurn: data.currentTurn,
-        moveNumber: data.moveNumber,
-      } : null);
-
+      // Don't update state from server response - optimistic update already has correct data
+      // This prevents flicker from double state update. Next poll will sync if needed.
       return true;
     } catch (err) {
       console.error('Error performing action:', err);
@@ -356,6 +369,9 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color)) return;
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
 
+          // Block polling immediately to prevent stale data overwriting optimistic update
+          lastActionTime.current = Date.now();
+
           // Optimistic update for move
           const newBoard = game.boardState.map(row => [...row]) as CrazyBoard;
           newBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
@@ -391,6 +407,9 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color)) return;
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
 
+          // Block polling immediately to prevent stale data overwriting optimistic update
+          lastActionTime.current = Date.now();
+
           // Optimistic update - place stone and detect captures
           const newBoard = game.boardState.map(row => [...row]) as CrazyBoard;
           newBoard[pos.y][pos.x] = heldStone.color;
@@ -418,6 +437,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
             whiteCaptured: prev.whiteCaptured + (heldStone.color === 1 ? totalCaptured : 0),
             brownCaptured: prev.brownCaptured + (heldStone.color === 2 ? totalCaptured : 0),
             greyCaptured: prev.greyCaptured + (heldStone.color === 3 ? totalCaptured : 0),
+            currentTurn: (prev.currentTurn + 1) % 4, // Advance turn
           } : null);
           setHeldStone(null);
 
@@ -754,7 +774,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
             onKeyDown={(e) => e.key === 'Enter' && handleKeySubmit()}
           />
           <div className="flex gap-3">
-            <button onClick={handleKeySubmit} className="flex-1 py-3 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-colors">
+            <button onClick={handleKeySubmit} className="flex-1 py-3 bg-white text-zinc-800 border border-zinc-300 rounded-lg font-semibold hover:bg-zinc-100 transition-colors">
               Join Board
             </button>
             <button onClick={() => router.push('/crazy')} className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-lg font-semibold hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors">
