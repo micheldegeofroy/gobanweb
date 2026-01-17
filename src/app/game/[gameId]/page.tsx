@@ -6,6 +6,7 @@ import GoBoard, { HeldStone } from '@/components/GoBoard';
 import StonePot from '@/components/StonePot';
 import { useDeviceType } from '@/hooks/useDeviceType';
 import { useHapticFeedback } from '@/hooks/useHapticFeedback';
+import { GoRulesModal } from '@/components/GoRulesModal';
 import type { Board, Position, Stone } from '@/lib/game/logic';
 import { createEmptyBoard, detectAndRemoveCaptures, wouldBeSuicide } from '@/lib/game/logic';
 
@@ -74,6 +75,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   const [heldStone, setHeldStone] = useState<HeldStone | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const hasInitialized = useRef(false);
+
+  // Rules modal state
+  const [showRules, setShowRules] = useState(false);
 
   // Replay state
   const [isReplaying, setIsReplaying] = useState(false);
@@ -743,6 +747,12 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       >
         {copied ? 'COPIED!' : 'SHARE'}
       </button>
+      <button
+        onClick={() => setShowRules(true)}
+        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
+      >
+        RULES
+      </button>
     </>
   );
 
@@ -897,6 +907,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         )}
 
       </div>
+
+      {/* Rules Modal */}
+      <GoRulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
     </div>
   );
 }
