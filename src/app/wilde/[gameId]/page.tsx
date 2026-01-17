@@ -6,7 +6,6 @@ import WildeGoBoard, { WildeHeldStone } from '@/components/WildeGoBoard';
 import WildeStonePot from '@/components/WildeStonePot';
 import { useDeviceType } from '@/hooks/useDeviceType';
 import { useHapticFeedback } from '@/hooks/useHapticFeedback';
-import { WildeRulesModal } from '@/components/WildeRulesModal';
 import { StonePot } from '@/lib/db/schema';
 import { createEmptyBoard } from '@/lib/wilde/colors';
 import {
@@ -207,9 +206,6 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
   const [copied, setCopied] = useState(false);
   const [heldStone, setHeldStone] = useState<WildeHeldStone | null>(null);
   const hasInitialized = useRef(false);
-
-  // Rules modal state
-  const [showRules, setShowRules] = useState(false);
 
   // Replay state
   const [isReplayMode, setIsReplayMode] = useState(false);
@@ -1066,9 +1062,6 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
       <button onClick={handleShare} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
         {copied ? 'COPIED!' : 'SHARE'}
       </button>
-      <button onClick={() => setShowRules(true)} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
-        RULES
-      </button>
     </>
   );
 
@@ -1151,7 +1144,6 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
           </div>
         )}
       </div>
-      <WildeRulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
     </div>
   );
 }
