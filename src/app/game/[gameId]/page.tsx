@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import GoBoard, { HeldStone } from '@/components/GoBoard';
 import StonePot from '@/components/StonePot';
 import { useDeviceType } from '@/hooks/useDeviceType';
+import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 import type { Board, Position, Stone } from '@/lib/game/logic';
 import { createEmptyBoard, detectAndRemoveCaptures, wouldBeSuicide } from '@/lib/game/logic';
 
@@ -43,6 +44,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   const router = useRouter();
   const searchParams = useSearchParams();
   const deviceType = useDeviceType();
+  const haptic = useHapticFeedback();
   const isDesktop = deviceType === 'desktop';
   const isTablet = deviceType === 'tablet';
   const isMobile = deviceType === 'mobile';
@@ -228,12 +230,14 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         }
         // If from pot, just drop it (no server action needed, it never left)
         setHeldStone(null);
+        haptic.stonePlaced();
       }
     } else {
       // Pick up a stone from the pot if available
       const potCount = color === 0 ? game?.blackPotCount : game?.whitePotCount;
       if ((potCount ?? 0) > 0) {
         setHeldStone({ color });
+        haptic.stonePickedUp();
       }
     }
   };
@@ -252,9 +256,11 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           const testBoard = game.boardState.map(row => [...row]);
           testBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
           if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color)) {
+            haptic.invalidMove();
             return;
           }
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
+            haptic.invalidMove();
             return;
           }
           // Block polling immediately to prevent stale data overwriting optimistic update
@@ -264,6 +270,12 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           newBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
           newBoard[pos.y][pos.x] = heldStone.color;
           const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured } = detectAndRemoveCaptures(newBoard);
+          // Haptic feedback
+          if (blackCaptured > 0 || whiteCaptured > 0) {
+            haptic.capture();
+          } else {
+            haptic.stonePlaced();
+          }
           // Update captured counts: blackCaptured stones go to white's score, whiteCaptured to black's
           setGame(prev => prev ? {
             ...prev,
@@ -286,9 +298,11 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         } else {
           // Placing a new stone from pot
           if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color)) {
+            haptic.invalidMove();
             return;
           }
           if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
+            haptic.invalidMove();
             return;
           }
           // Block polling immediately to prevent stale data overwriting optimistic update
@@ -297,6 +311,12 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           const newBoard = game.boardState.map(row => [...row]);
           newBoard[pos.y][pos.x] = heldStone.color;
           const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured } = detectAndRemoveCaptures(newBoard);
+          // Haptic feedback
+          if (blackCaptured > 0 || whiteCaptured > 0) {
+            haptic.capture();
+          } else {
+            haptic.stonePlaced();
+          }
           // Update pot count, onBoard count, and captured counts
           setGame(prev => prev ? {
             ...prev,
@@ -326,6 +346,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           color: stoneAtPos as 0 | 1,
           fromBoard: pos,
         });
+        haptic.stonePickedUp();
       }
     }
   };

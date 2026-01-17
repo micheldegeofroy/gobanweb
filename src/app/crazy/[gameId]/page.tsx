@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import CrazyGoBoard, { CrazyHeldStone } from '@/components/CrazyGoBoard';
 import CrazyStonePot from '@/components/CrazyStonePot';
 import { useDeviceType } from '@/hooks/useDeviceType';
+import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 
 type CrazyStone = 0 | 1 | 2 | 3 | null;
 type CrazyBoard = CrazyStone[][];
@@ -181,6 +182,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
   const router = useRouter();
   const searchParams = useSearchParams();
   const deviceType = useDeviceType();
+  const haptic = useHapticFeedback();
   const isDesktop = deviceType === 'desktop';
   const isMobile = deviceType === 'mobile';
 
@@ -341,6 +343,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           });
         }
         setHeldStone(null);
+        haptic.stonePlaced();
       }
     } else {
       // Japanese scoring: only potCount matters for picking up (captured are just points)
@@ -352,6 +355,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
       };
       if (potCounts[color] > 0) {
         setHeldStone({ color });
+        haptic.stonePickedUp();
       }
     }
   };
@@ -366,8 +370,14 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           // Moving a stone on the board
           const testBoard = game.boardState.map(row => [...row]) as CrazyBoard;
           testBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
-          if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color)) return;
-          if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
+          if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color)) {
+            haptic.invalidMove();
+            return;
+          }
+          if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
+            haptic.invalidMove();
+            return;
+          }
 
           // Block polling immediately to prevent stale data overwriting optimistic update
           lastActionTime.current = Date.now();
@@ -381,8 +391,15 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured, brownCaptured, greyCaptured } =
             detectAndRemoveCaptures(newBoard, pos.x, pos.y, heldStone.color);
 
-          // Japanese scoring: capturing player (the one who moved) gets credit
+          // Haptic feedback
           const totalCaptured = blackCaptured + whiteCaptured + brownCaptured + greyCaptured;
+          if (totalCaptured > 0) {
+            haptic.capture();
+          } else {
+            haptic.stonePlaced();
+          }
+
+          // Japanese scoring: capturing player (the one who moved) gets credit
           setGame(prev => prev ? {
             ...prev,
             boardState: boardAfterCaptures,
@@ -404,8 +421,14 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           });
         } else {
           // Placing a stone from pot
-          if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color)) return;
-          if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
+          if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color)) {
+            haptic.invalidMove();
+            return;
+          }
+          if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
+            haptic.invalidMove();
+            return;
+          }
 
           // Block polling immediately to prevent stale data overwriting optimistic update
           lastActionTime.current = Date.now();
@@ -425,8 +448,15 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
             greyPotCount: game.greyPotCount - (heldStone.color === 3 ? 1 : 0),
           };
 
-          // Japanese scoring: capturing player (the one placing) gets credit
+          // Haptic feedback
           const totalCaptured = blackCaptured + whiteCaptured + brownCaptured + greyCaptured;
+          if (totalCaptured > 0) {
+            haptic.capture();
+          } else {
+            haptic.stonePlaced();
+          }
+
+          // Japanese scoring: capturing player (the one placing) gets credit
           setGame(prev => prev ? {
             ...prev,
             boardState: boardAfterCaptures,
@@ -452,6 +482,7 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     } else {
       if (stoneAtPos !== null) {
         setHeldStone({ color: stoneAtPos, fromBoard: pos });
+        haptic.stonePickedUp();
       }
     }
   };

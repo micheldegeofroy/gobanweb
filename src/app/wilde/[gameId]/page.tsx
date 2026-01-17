@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import WildeGoBoard, { WildeHeldStone } from '@/components/WildeGoBoard';
 import WildeStonePot from '@/components/WildeStonePot';
 import { useDeviceType } from '@/hooks/useDeviceType';
+import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 import { StonePot } from '@/lib/db/schema';
 import { createEmptyBoard } from '@/lib/wilde/colors';
 import {
@@ -179,6 +180,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
   const router = useRouter();
   const searchParams = useSearchParams();
   const deviceType = useDeviceType();
+  const haptic = useHapticFeedback();
   const isDesktop = deviceType === 'desktop';
   const isTablet = deviceType === 'tablet';
   const isMobile = deviceType === 'mobile';
@@ -365,6 +367,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
           });
         }
         setHeldStone(null);
+        haptic.stonePlaced();
       }
     } else {
       // Only allow picking up stone if it's this player's turn
@@ -372,9 +375,10 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
       const pot = game.stonePots[color];
       if (pot && pot.potCount > 0) {
         setHeldStone({ color });
+        haptic.stonePickedUp();
       }
     }
-  }, [game, heldStone, performAction]);
+  }, [game, heldStone, performAction, haptic]);
 
   const handleBoardClick = (pos: Position) => {
     if (!game) return;
@@ -386,8 +390,14 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
           // Moving a stone on the board
           const testBoard = game.boardState.map(row => [...row]) as WildeBoard;
           testBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
-          if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color, game.boardWidth, game.boardHeight)) return;
-          if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
+          if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color, game.boardWidth, game.boardHeight)) {
+            haptic.invalidMove();
+            return;
+          }
+          if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
+            haptic.invalidMove();
+            return;
+          }
 
           // Block polling immediately to prevent stale data overwriting optimistic update
           lastActionTime.current = Date.now();
@@ -400,8 +410,15 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
           const { newBoard: boardAfterCaptures, capturedByColor } =
             detectAndRemoveCaptures(newBoard, pos.x, pos.y, heldStone.color, game.boardWidth, game.boardHeight, game.playerCount);
 
-          // Update captured counts and onBoard counts
+          // Haptic feedback
           const totalCaptured = capturedByColor.reduce((sum, c) => sum + c, 0);
+          if (totalCaptured > 0) {
+            haptic.capture();
+          } else {
+            haptic.stonePlaced();
+          }
+
+          // Update captured counts and onBoard counts
           const newPots = game.stonePots.map((pot, i) => ({
             ...pot,
             captured: pot.captured + (i === heldStone.color ? totalCaptured : 0),
@@ -428,8 +445,14 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
           // Placing a stone from pot
           // Check turn order silently
           if (heldStone.color !== game.currentTurn) return;
-          if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color, game.boardWidth, game.boardHeight)) return;
-          if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) return;
+          if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color, game.boardWidth, game.boardHeight)) {
+            haptic.invalidMove();
+            return;
+          }
+          if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
+            haptic.invalidMove();
+            return;
+          }
 
           // Block polling immediately to prevent stale data overwriting optimistic update
           lastActionTime.current = Date.now();
@@ -441,8 +464,15 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
           const { newBoard: boardAfterCaptures, capturedByColor } =
             detectAndRemoveCaptures(newBoard, pos.x, pos.y, heldStone.color, game.boardWidth, game.boardHeight, game.playerCount);
 
-          // Update pot counts, captured counts, and onBoard counts
+          // Haptic feedback
           const totalCaptured = capturedByColor.reduce((sum, c) => sum + c, 0);
+          if (totalCaptured > 0) {
+            haptic.capture();
+          } else {
+            haptic.stonePlaced();
+          }
+
+          // Update pot counts, captured counts, and onBoard counts
           const newPots = game.stonePots.map((pot, i) => ({
             potCount: pot.potCount - (i === heldStone.color ? 1 : 0),
             captured: pot.captured + (i === heldStone.color ? totalCaptured : 0),
@@ -470,6 +500,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
     } else {
       if (stoneAtPos !== null) {
         setHeldStone({ color: stoneAtPos, fromBoard: pos });
+        haptic.stonePickedUp();
       }
     }
   };
