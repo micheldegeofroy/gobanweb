@@ -168,3 +168,49 @@ export const errorToggles = pgTable('error_toggles', {
 
 export type ErrorToggle = typeof errorToggles.$inferSelect;
 export type NewErrorToggle = typeof errorToggles.$inferInsert;
+
+// Zen Go games table - 3-player variant with shared pot, alternating colors
+export const zenGames = pgTable('zen_games', {
+  id: text('id').primaryKey(),
+  publicKey: text('public_key').notNull(),
+  boardSize: integer('board_size').notNull().default(19), // 9, 13, or 19
+  boardState: jsonb('board_state').notNull().$type<(0 | 1 | null)[][]>(), // 0=black, 1=white
+  sharedPotCount: integer('shared_pot_count').notNull(), // Single shared pot
+  nextStoneColor: integer('next_stone_color').notNull().default(0), // 0=black, 1=white - alternates each turn
+  player1Captured: integer('player1_captured').notNull().default(0),
+  player2Captured: integer('player2_captured').notNull().default(0),
+  player3Captured: integer('player3_captured').notNull().default(0),
+  currentTurn: integer('current_turn').notNull().default(0), // 0, 1, or 2
+  lastMoveX: integer('last_move_x'),
+  lastMoveY: integer('last_move_y'),
+  koPointX: integer('ko_point_x'),
+  koPointY: integer('ko_point_y'),
+  moveNumber: integer('move_number').notNull().default(0),
+  connectedUsers: integer('connected_users').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export type ZenGame = typeof zenGames.$inferSelect;
+export type NewZenGame = typeof zenGames.$inferInsert;
+
+// Zen Go actions log - for replay
+export const zenActions = pgTable('zen_actions', {
+  id: text('id').primaryKey(),
+  gameId: text('game_id').notNull().references(() => zenGames.id, { onDelete: 'cascade' }),
+  actionType: text('action_type').notNull(), // 'place', 'remove', 'move'
+  stoneColor: integer('stone_color'), // 0=black, 1=white
+  playerIndex: integer('player_index'), // Which player made this move (0, 1, or 2)
+  fromX: integer('from_x'),
+  fromY: integer('from_y'),
+  toX: integer('to_x'),
+  toY: integer('to_y'),
+  moveNumber: integer('move_number').notNull(),
+  capturedStones: jsonb('captured_stones').$type<CapturedStoneInfo[]>(),
+  koPointX: integer('ko_point_x'),
+  koPointY: integer('ko_point_y'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export type ZenAction = typeof zenActions.$inferSelect;
+export type NewZenAction = typeof zenActions.$inferInsert;

@@ -2,19 +2,19 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 
-type CrazyStone = 0 | 1 | 2 | 3 | null; // 0=black, 1=white, 2=brown, 3=grey
-type CrazyBoard = CrazyStone[][];
+type ZenStone = 0 | 1 | null; // 0=black, 1=white
+type ZenBoard = ZenStone[][];
 type Position = { x: number; y: number };
 
-export type CrazyHeldStone = {
-  color: 0 | 1 | 2 | 3;
+export type ZenHeldStone = {
+  color: 0 | 1;
   fromBoard?: Position;
 };
 
-interface CrazyGoBoardProps {
-  board: CrazyBoard;
+interface ZenGoBoardProps {
+  board: ZenBoard;
   size: number;
-  heldStone: CrazyHeldStone | null;
+  heldStone: ZenHeldStone | null;
   lastMove: Position | null;
   onBoardClick: (pos: Position) => void;
   topButtons?: React.ReactNode;
@@ -36,22 +36,20 @@ const getMaxBoardSize = () => {
   }
 };
 
-// Stone colors with gradient stops
+// Grayscale stone colors
 const stoneColors = {
   0: { light: '#4a4a4a', dark: '#1a1a1a', outline: '#000000' }, // Black
   1: { light: '#ffffff', dark: '#d0d0d0', outline: '#b0b0b0' }, // White
-  2: { light: '#ffffff', dark: '#d0d0d0', outline: '#b0b0b0' }, // White with cross
-  3: { light: '#4a4a4a', dark: '#1a1a1a', outline: '#000000' }, // Black with white cross
 };
 
-export default function CrazyGoBoard({
+export default function ZenGoBoard({
   board,
   size,
   heldStone,
   lastMove,
   onBoardClick,
   topButtons,
-}: CrazyGoBoardProps) {
+}: ZenGoBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState(600);
@@ -89,7 +87,7 @@ export default function CrazyGoBoard({
     ctx: CanvasRenderingContext2D,
     cx: number,
     cy: number,
-    color: 0 | 1 | 2 | 3,
+    color: 0 | 1,
     radius: number,
     isGhost: boolean = false
   ) => {
@@ -118,23 +116,6 @@ export default function CrazyGoBoard({
     ctx.strokeStyle = colors.outline;
     ctx.lineWidth = 0.5;
     ctx.stroke();
-
-    // Draw cross on color 2 (white with black cross) and color 3 (black with white cross)
-    if (color === 2 || color === 3) {
-      ctx.strokeStyle = color === 2 ? '#1a1a1a' : '#ffffff';
-      ctx.lineWidth = radius * 0.15;
-      ctx.lineCap = 'butt';
-      // Vertical line - full height
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - radius);
-      ctx.lineTo(cx, cy + radius);
-      ctx.stroke();
-      // Horizontal line - full width
-      ctx.beginPath();
-      ctx.moveTo(cx - radius, cy);
-      ctx.lineTo(cx + radius, cy);
-      ctx.stroke();
-    }
 
     if (isGhost) ctx.globalAlpha = 1;
   }, []);
@@ -168,12 +149,12 @@ export default function CrazyGoBoard({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Board background
-    ctx.fillStyle = '#DEB887';
+    // Grayscale board background - dark wood grain
+    ctx.fillStyle = '#4a4a4a';
     ctx.fillRect(0, 0, canvasSize, canvasSize);
 
-    // Wood grain
-    ctx.strokeStyle = 'rgba(139, 90, 43, 0.1)';
+    // Wood grain in grayscale
+    ctx.strokeStyle = 'rgba(60, 60, 60, 0.3)';
     ctx.lineWidth = 1;
     for (let i = 0; i < canvasSize; i += 8) {
       ctx.beginPath();
@@ -182,8 +163,8 @@ export default function CrazyGoBoard({
       ctx.stroke();
     }
 
-    // Grid lines
-    ctx.strokeStyle = '#3d2914';
+    // Grid lines - lighter gray
+    ctx.strokeStyle = '#7a7a7a';
     ctx.lineWidth = 1;
     for (let i = 0; i < size; i++) {
       const pos = padding + i * cellSize;
@@ -197,9 +178,9 @@ export default function CrazyGoBoard({
       ctx.stroke();
     }
 
-    // Star points
+    // Star points - white/light gray
     const starPoints = getStarPoints(size);
-    ctx.fillStyle = '#3d2914';
+    ctx.fillStyle = '#9a9a9a';
     for (const point of starPoints) {
       ctx.beginPath();
       ctx.arc(padding + point.x * cellSize, padding + point.y * cellSize, cellSize * 0.12, 0, Math.PI * 2);
@@ -207,7 +188,7 @@ export default function CrazyGoBoard({
     }
 
     // Draw coordinate numbers at top edge (size, size-1, ... 1) - rotated for opponent
-    ctx.fillStyle = '#3d2914';
+    ctx.fillStyle = '#9a9a9a';
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -289,7 +270,7 @@ export default function CrazyGoBoard({
     if (!heldStone && hoverPos && board[hoverPos.y][hoverPos.x] !== null) {
       const cx = padding + hoverPos.x * cellSize;
       const cy = padding + hoverPos.y * cellSize;
-      ctx.strokeStyle = '#ff6b6b';
+      ctx.strokeStyle = '#cccccc';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(cx, cy, cellSize * 0.5, 0, Math.PI * 2);

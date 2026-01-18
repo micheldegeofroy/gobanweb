@@ -51,7 +51,7 @@ export default function TutorialBoard({
   const [appearOpacity, setAppearOpacity] = useState(0);
   const animationRef = useRef<number | null>(null);
 
-  const padding = canvasSize * 0.08;
+  const padding = canvasSize * 0.104;
   const boardWidth = canvasSize - padding * 2;
   const cellSize = boardWidth / (size - 1);
 
@@ -278,6 +278,50 @@ export default function TutorialBoard({
       }
     }
 
+    // Draw coordinate numbers at top edge (size, size-1, ... 1) - rotated for opponent
+    ctx.fillStyle = '#3d2914';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (let i = 0; i < size; i++) {
+      const x = padding + i * cellSize;
+      const y = padding - cellSize * 0.4;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.PI);
+      ctx.fillText(String(size - i), 0, 0);
+      ctx.restore();
+    }
+
+    // Draw coordinate numbers at bottom edge (size, size-1, ... 1)
+    ctx.textBaseline = 'top';
+    for (let i = 0; i < size; i++) {
+      const x = padding + i * cellSize;
+      const y = padding + (size - 1) * cellSize + cellSize * 0.4;
+      ctx.fillText(String(size - i), x, y);
+    }
+
+    // Draw coordinate letters on left edge (A, B, C...)
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < size; i++) {
+      const x = padding - cellSize * 0.4;
+      const y = padding + i * cellSize;
+      ctx.fillText(String.fromCharCode(65 + i), x, y);
+    }
+
+    // Draw coordinate letters on right edge (A, B, C...) - rotated for opponent
+    ctx.textAlign = 'right';
+    for (let i = 0; i < size; i++) {
+      const x = padding + (size - 1) * cellSize + cellSize * 0.4;
+      const y = padding + i * cellSize;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.PI);
+      ctx.fillText(String.fromCharCode(65 + i), 0, 0);
+      ctx.restore();
+    }
+
     // Draw stones
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
@@ -290,11 +334,13 @@ export default function TutorialBoard({
       }
     }
 
-    // Last move indicator
+    // Last move indicator - contrasting circle (white on black, black on white)
     if (lastMove && board[lastMove.y][lastMove.x] !== null) {
       const cx = padding + lastMove.x * cellSize;
       const cy = padding + lastMove.y * cellSize;
-      ctx.strokeStyle = '#dc2626';
+      const stoneColor = board[lastMove.y][lastMove.x];
+      const isBlackStone = Number(stoneColor) === 0;
+      ctx.strokeStyle = isBlackStone ? '#ffffff' : '#000000';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(cx, cy, cellSize * 0.35, 0, Math.PI * 2);

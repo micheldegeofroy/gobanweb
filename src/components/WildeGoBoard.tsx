@@ -131,7 +131,7 @@ export default function WildeGoBoard({
     canvasHeight = maxSize;
   }
 
-  const padding = Math.min(canvasWidth, canvasHeight) * 0.10;
+  const padding = Math.min(canvasWidth, canvasHeight) * 0.13;
   const boardPixelWidth = canvasWidth - padding * 2;
   const boardPixelHeight = canvasHeight - padding * 2;
   const cellSizeX = boardPixelWidth / (width - 1);
@@ -303,6 +303,50 @@ export default function WildeGoBoard({
         Math.PI * 2
       );
       ctx.fill();
+    }
+
+    // Draw coordinate numbers at top edge (width, width-1, ... 1) - rotated for opponent
+    ctx.fillStyle = '#FF69B4';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (let i = 0; i < width; i++) {
+      const x = padding + i * cellSizeX;
+      const y = padding - cellSize * 0.4;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.PI);
+      ctx.fillText(String(width - i), 0, 0);
+      ctx.restore();
+    }
+
+    // Draw coordinate numbers at bottom edge (width, width-1, ... 1)
+    ctx.textBaseline = 'top';
+    for (let i = 0; i < width; i++) {
+      const x = padding + i * cellSizeX;
+      const y = padding + (height - 1) * cellSizeY + cellSize * 0.4;
+      ctx.fillText(String(width - i), x, y);
+    }
+
+    // Draw coordinate letters on left edge (A, B, C...)
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < height; i++) {
+      const x = padding - cellSize * 0.4;
+      const y = padding + i * cellSizeY;
+      ctx.fillText(String.fromCharCode(65 + i), x, y);
+    }
+
+    // Draw coordinate letters on right edge (A, B, C...) - rotated for opponent
+    ctx.textAlign = 'right';
+    for (let i = 0; i < height; i++) {
+      const x = padding + (width - 1) * cellSizeX + cellSize * 0.4;
+      const y = padding + i * cellSizeY;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.PI);
+      ctx.fillText(String.fromCharCode(65 + i), 0, 0);
+      ctx.restore();
     }
 
     // Draw stones
