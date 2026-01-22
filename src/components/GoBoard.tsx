@@ -79,7 +79,7 @@ export default function GoBoard({
   const [hoverPos, setHoverPos] = useState<Position | null>(null);
 
   // Calculate cell size based on canvas size
-  const padding = canvasSize * 0.13;
+  const padding = canvasSize * (hideCoordinates ? 0.09 : 0.13);
   const boardWidth = canvasSize - padding * 2;
   const cellSize = boardWidth / (size - 1);
 

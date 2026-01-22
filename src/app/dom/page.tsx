@@ -47,12 +47,11 @@ export default function DomGoHome() {
     <div className="min-h-screen" style={{ backgroundColor: airbnbRed }}>
       <div className="container mx-auto px-4 py-16">
         <header className="text-center mb-16">
-          <h1 className="text-5xl font-bold mb-4 text-white">
-            Go Dom
-          </h1>
-          <p className="text-xl text-white/80">
-            Classic Go, Fresh Style
-          </p>
+          <img
+            src="https://domiio.com/logo.png"
+            alt="Domiio"
+            className="h-20 mx-auto brightness-0 invert"
+          />
         </header>
 
         <div className="max-w-md mx-auto">
@@ -64,13 +63,19 @@ export default function DomGoHome() {
             {/* Stone Preview */}
             <div className="flex justify-center gap-6 mb-8">
               <div
-                className="w-12 h-12 rounded-full shadow-lg"
-                style={{ backgroundColor: airbnbDark }}
-                title="Black"
+                className="w-12 h-12 rounded-full shadow-xl"
+                style={{
+                  background: 'radial-gradient(circle at 30% 30%, #FF8A8F 0%, #CC484C 100%)',
+                  boxShadow: '2px 2px 4px rgba(0,0,0,0.3), inset -2px -2px 4px rgba(0,0,0,0.2), inset 2px 2px 4px rgba(255,255,255,0.2)'
+                }}
+                title="Red"
               />
               <div
-                className="w-12 h-12 rounded-full bg-white border-2 shadow-lg"
-                style={{ borderColor: '#E0E0E0' }}
+                className="w-12 h-12 rounded-full shadow-xl"
+                style={{
+                  background: 'radial-gradient(circle at 30% 30%, #ffffff 0%, #d0d0d0 100%)',
+                  boxShadow: '2px 2px 4px rgba(0,0,0,0.3), inset -2px -2px 4px rgba(0,0,0,0.1), inset 2px 2px 4px rgba(255,255,255,0.5)'
+                }}
                 title="White"
               />
             </div>
@@ -143,11 +148,8 @@ export default function DomGoHome() {
           </div>
         </div>
 
-        {/* Features - Airbnb style */}
-        <section className="max-w-md mx-auto mt-12 text-center">
-          <h2 className="text-xl font-semibold mb-6 text-white">
-            Why Go Dom?
-          </h2>
+        {/* Features */}
+        <section className="max-w-md mx-auto mt-6 text-center">
           <div className="bg-white rounded-xl p-6">
             <ul className="text-sm text-gray-600 space-y-3 text-left">
               <li className="flex items-start gap-2">
