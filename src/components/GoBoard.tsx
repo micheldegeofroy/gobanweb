@@ -16,6 +16,11 @@ interface GoBoardProps {
   onBoardClick: (pos: Position) => void;
   topButtons?: React.ReactNode;
   bottomButtons?: React.ReactNode;
+  boardColor?: string; // Custom board background color
+  whiteStoneGlow?: string; // Custom glow color for white stones
+  blackStoneColor?: string; // Custom color for black stones
+  blackStoneGlow?: string; // Custom glow color for black stones
+  starPointColor?: string; // Custom color for star points (hoshi)
 }
 
 // Get max board size based on screen dimensions
@@ -56,6 +61,11 @@ export default function GoBoard({
   onBoardClick,
   topButtons,
   bottomButtons,
+  boardColor = '#DEB887', // Default: Burlywood - traditional Go board color
+  whiteStoneGlow, // Optional glow color for white stones
+  blackStoneColor, // Optional custom color for black stones
+  blackStoneGlow, // Optional glow color for black stones
+  starPointColor = '#3d2914', // Default: dark brown for star points
 }: GoBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -104,6 +114,26 @@ export default function GoBoard({
       ctx.globalAlpha = 0.5;
     }
 
+    // Draw glow for white stones if whiteStoneGlow is set
+    if (color === 1 && whiteStoneGlow && !isGhost) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 1.15, 0, Math.PI * 2);
+      ctx.fillStyle = whiteStoneGlow;
+      ctx.globalAlpha = 0.25;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // Draw glow for black stones if blackStoneGlow is set
+    if (color === 0 && blackStoneGlow && !isGhost) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 1.15, 0, Math.PI * 2);
+      ctx.fillStyle = blackStoneGlow;
+      ctx.globalAlpha = 0.25;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
     // Create gradient for 3D effect
     const gradient = ctx.createRadialGradient(
       cx - radius * 0.3,
@@ -115,9 +145,30 @@ export default function GoBoard({
     );
 
     if (color === 0) {
-      // Black stone
-      gradient.addColorStop(0, '#4a4a4a');
-      gradient.addColorStop(1, '#1a1a1a');
+      // Black stone (or custom color)
+      if (blackStoneColor) {
+        // Create 3D effect: lighter highlight on top-left, original color for shadow
+        // Parse hex color and create lighter version for highlight
+        const hex = blackStoneColor.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        // Lighten by blending with white (40% lighter)
+        const lighterR = Math.min(255, Math.round(r + (255 - r) * 0.4));
+        const lighterG = Math.min(255, Math.round(g + (255 - g) * 0.4));
+        const lighterB = Math.min(255, Math.round(b + (255 - b) * 0.4));
+        const lighterColor = `rgb(${lighterR}, ${lighterG}, ${lighterB})`;
+        // Darken for shadow edge (20% darker)
+        const darkerR = Math.round(r * 0.8);
+        const darkerG = Math.round(g * 0.8);
+        const darkerB = Math.round(b * 0.8);
+        const darkerColor = `rgb(${darkerR}, ${darkerG}, ${darkerB})`;
+        gradient.addColorStop(0, lighterColor);
+        gradient.addColorStop(1, darkerColor);
+      } else {
+        gradient.addColorStop(0, '#4a4a4a');
+        gradient.addColorStop(1, '#1a1a1a');
+      }
     } else {
       // White stone
       gradient.addColorStop(0, '#ffffff');
@@ -146,7 +197,7 @@ export default function GoBoard({
     if (isGhost) {
       ctx.globalAlpha = 1;
     }
-  }, []);
+  }, [whiteStoneGlow, blackStoneColor, blackStoneGlow]);
 
   // Get star points based on board size
   const getStarPoints = useCallback((size: number): Position[] => {
@@ -181,17 +232,19 @@ export default function GoBoard({
     if (!ctx) return;
 
     // Clear canvas
-    ctx.fillStyle = '#DEB887'; // Burlywood - traditional Go board color
+    ctx.fillStyle = boardColor;
     ctx.fillRect(0, 0, canvasSize, canvasSize);
 
-    // Draw wood grain texture
-    ctx.strokeStyle = 'rgba(139, 90, 43, 0.1)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < canvasSize; i += 8) {
-      ctx.beginPath();
-      ctx.moveTo(0, i + Math.random() * 4);
-      ctx.lineTo(canvasSize, i + Math.random() * 4);
-      ctx.stroke();
+    // Draw wood grain texture (only for wood-colored boards)
+    if (boardColor === '#DEB887') {
+      ctx.strokeStyle = 'rgba(139, 90, 43, 0.1)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < canvasSize; i += 8) {
+        ctx.beginPath();
+        ctx.moveTo(0, i + Math.random() * 4);
+        ctx.lineTo(canvasSize, i + Math.random() * 4);
+        ctx.stroke();
+      }
     }
 
     // Draw grid lines
@@ -216,7 +269,7 @@ export default function GoBoard({
 
     // Draw star points (hoshi)
     const starPoints = getStarPoints(size);
-    ctx.fillStyle = '#3d2914';
+    ctx.fillStyle = starPointColor;
     for (const point of starPoints) {
       ctx.beginPath();
       ctx.arc(
@@ -319,7 +372,7 @@ export default function GoBoard({
       ctx.arc(cx, cy, cellSize * 0.5, 0, Math.PI * 2);
       ctx.stroke();
     }
-  }, [board, size, canvasSize, heldStone, lastMove, hoverPos, cellSize, padding, drawStone, getStarPoints]);
+  }, [board, size, canvasSize, heldStone, lastMove, hoverPos, cellSize, padding, drawStone, getStarPoints, boardColor, starPointColor]);
 
   // Handle resize
   useEffect(() => {

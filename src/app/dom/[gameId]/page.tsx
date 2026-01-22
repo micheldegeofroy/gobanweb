@@ -40,7 +40,7 @@ interface GameData {
   updatedAt: string;
 }
 
-export default function GamePage({ params }: { params: Promise<{ gameId: string }> }) {
+export default function DomGamePage({ params }: { params: Promise<{ gameId: string }> }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const deviceType = useDeviceType();
@@ -83,8 +83,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   const [replayLastMove, setReplayLastMove] = useState<Position | null>(null);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
-  const lastActionTime = useRef<number>(0); // Track when last action was performed
-  const lastOptimisticUpdate = useRef<number>(0); // Track when optimistic update was applied
+  const lastActionTime = useRef<number>(0);
+  const lastOptimisticUpdate = useRef<number>(0);
 
   // Fetch game data
   const fetchGame = useCallback(async (gId: string, forceApply: boolean = false) => {
@@ -100,13 +100,10 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       }
       const data = await res.json();
 
-      // Protect optimistic updates from being overwritten by stale poll data
-      // Skip this check if forceApply is true (used after action confirmation)
       if (!forceApply) {
-        const OPTIMISTIC_PROTECTION_MS = 2500; // Protect for 2.5s after optimistic update
+        const OPTIMISTIC_PROTECTION_MS = 2500;
         const timeSinceOptimistic = Date.now() - lastOptimisticUpdate.current;
 
-        // If we're within the protection window, don't apply poll data
         if (timeSinceOptimistic < OPTIMISTIC_PROTECTION_MS) {
           return data;
         }
@@ -123,46 +120,40 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
 
   // Initialize - check for key in URL, localStorage, or show modal
   useEffect(() => {
-    // Wait until we've checked the URL for a key before proceeding
     if (!gameId || !hasCheckedUrl || hasInitialized.current) return;
     hasInitialized.current = true;
 
     const initializeGame = async (key: string) => {
       localStorage.setItem(`game_${gameId}_privateKey`, key);
       setPrivateKey(key);
-      await fetchGame(gameId, true); // forceApply for initial load
+      await fetchGame(gameId, true);
       setShowKeyModal(false);
       setIsLoading(false);
     };
 
-    // Priority: URL key > localStorage key > show modal
     if (urlKey) {
-      // Key in URL - use it and store it
       initializeGame(urlKey);
     } else {
-      // Check localStorage
       const storedKey = localStorage.getItem(`game_${gameId}_privateKey`);
       if (storedKey) {
         initializeGame(storedKey);
       } else {
-        // No key found - show modal to ask for key
         setShowKeyModal(true);
         setIsLoading(false);
       }
     }
   }, [gameId, hasCheckedUrl, urlKey, fetchGame]);
 
-  // Poll for updates (slower when tab is hidden, skip after recent actions)
+  // Poll for updates
   useEffect(() => {
     if (!game || !privateKey || !gameId) return;
 
     let interval: NodeJS.Timeout;
-    const ACTIVE_POLL_MS = 2000;   // 2s when tab is visible
-    const HIDDEN_POLL_MS = 10000;  // 10s when tab is hidden
-    const ACTION_COOLDOWN_MS = 1500; // Skip polling for 1.5s after action
+    const ACTIVE_POLL_MS = 2000;
+    const HIDDEN_POLL_MS = 10000;
+    const ACTION_COOLDOWN_MS = 1500;
 
     const pollIfReady = () => {
-      // Skip polling if we recently performed an action (server response is authoritative)
       if (Date.now() - lastActionTime.current < ACTION_COOLDOWN_MS) return;
       fetchGame(gameId);
     };
@@ -198,7 +189,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   ) => {
     if (!privateKey || !game) return;
 
-    // Mark action time to prevent polling from overwriting with stale data
     lastActionTime.current = Date.now();
 
     try {
@@ -219,8 +209,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         return false;
       }
 
-      // Don't update state from server response - optimistic update already has correct data
-      // This prevents flicker from double state update. Next poll will sync if needed.
       return true;
     } catch (err) {
       console.error('Error performing action:', err);
@@ -233,21 +221,17 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   // Handle clicking on a stone pot
   const handlePotClick = (color: 0 | 1) => {
     if (heldStone) {
-      // If holding a stone of this color, return it to pot
       if (heldStone.color === color) {
         if (heldStone.fromBoard) {
-          // Stone was from board, remove it
           performAction('remove', {
             fromX: heldStone.fromBoard.x,
             fromY: heldStone.fromBoard.y,
           });
         }
-        // If from pot, just drop it (no server action needed, it never left)
         setHeldStone(null);
         haptic.stonePlaced();
       }
     } else {
-      // Pick up a stone from the pot if available
       const potCount = color === 0 ? game?.blackPotCount : game?.whitePotCount;
       if ((potCount ?? 0) > 0) {
         setHeldStone({ color });
@@ -263,10 +247,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     const stoneAtPos = game.boardState[pos.y][pos.x];
 
     if (heldStone) {
-      // Holding a stone - try to place it
       if (stoneAtPos === null) {
         if (heldStone.fromBoard) {
-          // Moving a stone on the board - simulate the board without the source stone for suicide check
           const testBoard = game.boardState.map(row => [...row]);
           testBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
           if (wouldBeSuicide(testBoard, pos.x, pos.y, heldStone.color)) {
@@ -277,34 +259,28 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             haptic.invalidMove();
             return;
           }
-          // Block polling immediately to prevent stale data overwriting optimistic update
           lastActionTime.current = Date.now();
-          // Optimistic update - show move immediately with captures
           const newBoard = game.boardState.map(row => [...row]);
           newBoard[heldStone.fromBoard.y][heldStone.fromBoard.x] = null;
           newBoard[pos.y][pos.x] = heldStone.color;
           const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured } = detectAndRemoveCaptures(newBoard);
-          // Haptic feedback
           if (blackCaptured > 0 || whiteCaptured > 0) {
             haptic.capture();
           } else {
             haptic.stonePlaced();
           }
-          // Mark optimistic update time to prevent stale poll responses
           lastOptimisticUpdate.current = Date.now();
-          // Update captured counts: blackCaptured stones go to white's score, whiteCaptured to black's
           setGame(prev => prev ? {
             ...prev,
             boardState: boardAfterCaptures,
             lastMoveX: pos.x,
             lastMoveY: pos.y,
-            blackCaptured: prev.blackCaptured + whiteCaptured,  // Black captured white stones
-            whiteCaptured: prev.whiteCaptured + blackCaptured,  // White captured black stones
-            blackOnBoard: prev.blackOnBoard - blackCaptured,    // Black stones removed from board
-            whiteOnBoard: prev.whiteOnBoard - whiteCaptured,    // White stones removed from board
+            blackCaptured: prev.blackCaptured + whiteCaptured,
+            whiteCaptured: prev.whiteCaptured + blackCaptured,
+            blackOnBoard: prev.blackOnBoard - blackCaptured,
+            whiteOnBoard: prev.whiteOnBoard - whiteCaptured,
           } : null);
           setHeldStone(null);
-          // Send to server in background
           performAction('move', {
             fromX: heldStone.fromBoard.x,
             fromY: heldStone.fromBoard.y,
@@ -312,7 +288,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             toY: pos.y,
           });
         } else {
-          // Placing a new stone from pot
           if (wouldBeSuicide(game.boardState, pos.x, pos.y, heldStone.color)) {
             haptic.invalidMove();
             return;
@@ -321,21 +296,16 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             haptic.invalidMove();
             return;
           }
-          // Block polling immediately to prevent stale data overwriting optimistic update
           lastActionTime.current = Date.now();
-          // Optimistic update - show stone immediately with captures
           const newBoard = game.boardState.map(row => [...row]);
           newBoard[pos.y][pos.x] = heldStone.color;
           const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured } = detectAndRemoveCaptures(newBoard);
-          // Haptic feedback
           if (blackCaptured > 0 || whiteCaptured > 0) {
             haptic.capture();
           } else {
             haptic.stonePlaced();
           }
-          // Mark optimistic update time to prevent stale poll responses
           lastOptimisticUpdate.current = Date.now();
-          // Update pot count, onBoard count, and captured counts
           setGame(prev => prev ? {
             ...prev,
             boardState: boardAfterCaptures,
@@ -345,11 +315,10 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             whitePotCount: prev.whitePotCount - (heldStone.color === 1 ? 1 : 0),
             blackOnBoard: prev.blackOnBoard + (heldStone.color === 0 ? 1 : 0) - blackCaptured,
             whiteOnBoard: prev.whiteOnBoard + (heldStone.color === 1 ? 1 : 0) - whiteCaptured,
-            blackCaptured: prev.blackCaptured + whiteCaptured,  // Black captured white stones
-            whiteCaptured: prev.whiteCaptured + blackCaptured,  // White captured black stones
+            blackCaptured: prev.blackCaptured + whiteCaptured,
+            whiteCaptured: prev.whiteCaptured + blackCaptured,
           } : null);
           setHeldStone(null);
-          // Send to server in background
           performAction('place', {
             stoneColor: heldStone.color,
             toX: pos.x,
@@ -358,7 +327,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         }
       }
     } else {
-      // Not holding a stone - pick one up from board
       if (stoneAtPos !== null) {
         setHeldStone({
           color: stoneAtPos as 0 | 1,
@@ -372,14 +340,12 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   // Share - copy URL with key to clipboard
   const handleShare = async () => {
     if (!privateKey || !gameId) return;
-    const shareUrl = `${window.location.origin}/game/${gameId}?key=${encodeURIComponent(privateKey)}`;
+    const shareUrl = `${window.location.origin}/dom/${gameId}?key=${encodeURIComponent(privateKey)}`;
 
     try {
-      // Try modern clipboard API first
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(shareUrl);
       } else {
-        // Fallback for iOS Safari
         const textArea = document.createElement('textarea');
         textArea.value = shareUrl;
         textArea.style.position = 'fixed';
@@ -393,7 +359,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      // Fallback for iOS Safari
       const textArea = document.createElement('textarea');
       textArea.value = shareUrl;
       textArea.style.position = 'fixed';
@@ -408,14 +373,13 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     }
   };
 
-  // Submit key from modal - accepts URL or raw key
+  // Submit key from modal
   const handleKeySubmit = async () => {
     if (!keyInput.trim() || !gameId) return;
     const input = keyInput.trim();
 
     let key = input;
 
-    // Try to extract key from URL if input looks like a URL
     try {
       if (input.includes('://') || input.includes('key=')) {
         const url = new URL(input.includes('://') ? input : `https://dummy.com?${input}`);
@@ -430,7 +394,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
 
     localStorage.setItem(`game_${gameId}_privateKey`, key);
     setPrivateKey(key);
-    await fetchGame(gameId, true); // forceApply for initial load
+    await fetchGame(gameId, true);
     setShowKeyModal(false);
   };
 
@@ -463,7 +427,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           break;
       }
 
-      // Apply captures after place or move
       if (action.actionType === 'place' || action.actionType === 'move') {
         const captureResult = detectAndRemoveCaptures(board);
         board = captureResult.newBoard;
@@ -489,7 +452,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       setReplayBoard(createEmptyBoard(data.boardSize));
       setReplayLastMove(null);
       setIsReplaying(true);
-      setIsAutoPlaying(true); // Auto-start playing
+      setIsAutoPlaying(true);
     } catch (err) {
       console.error('Error loading history:', err);
       setError('Failed to load game history');
@@ -506,56 +469,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     if (autoPlayRef.current) {
       clearInterval(autoPlayRef.current);
       autoPlayRef.current = null;
-    }
-  };
-
-  const replayStepForward = () => {
-    if (replayIndex < replayActions.length && game) {
-      const newIndex = replayIndex + 1;
-      setReplayIndex(newIndex);
-      const { board, lastMove } = computeBoardAtStep(replayActions, newIndex, game.boardSize);
-      setReplayBoard(board);
-      setReplayLastMove(lastMove);
-    }
-  };
-
-  const replayStepBackward = () => {
-    if (replayIndex > 0 && game) {
-      const newIndex = replayIndex - 1;
-      setReplayIndex(newIndex);
-      const { board, lastMove } = computeBoardAtStep(replayActions, newIndex, game.boardSize);
-      setReplayBoard(board);
-      setReplayLastMove(lastMove);
-    }
-  };
-
-  const replayGoToStart = () => {
-    if (game) {
-      setReplayIndex(0);
-      setReplayBoard(createEmptyBoard(game.boardSize));
-      setReplayLastMove(null);
-    }
-  };
-
-  const replayGoToEnd = () => {
-    if (game) {
-      const newIndex = replayActions.length;
-      setReplayIndex(newIndex);
-      const { board, lastMove } = computeBoardAtStep(replayActions, newIndex, game.boardSize);
-      setReplayBoard(board);
-      setReplayLastMove(lastMove);
-    }
-  };
-
-  const toggleAutoPlay = () => {
-    if (isAutoPlaying) {
-      setIsAutoPlaying(false);
-      if (autoPlayRef.current) {
-        clearInterval(autoPlayRef.current);
-        autoPlayRef.current = null;
-      }
-    } else {
-      setIsAutoPlaying(true);
     }
   };
 
@@ -639,7 +552,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       autoPlayRef.current = setInterval(() => {
         setReplayIndex(prev => {
           if (prev >= replayActions.length) {
-            // Replay finished - exit replay mode
             setIsAutoPlaying(false);
             setIsReplaying(false);
             setReplayActions([]);
@@ -664,13 +576,18 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     }
   }, [isAutoPlaying, isReplaying, replayActions, game, computeBoardAtStep]);
 
-  // Show key input modal if no key
+  // Airbnb-style colors
+  const airbnbRed = '#FF5A5F';
+  const airbnbDark = '#484848';
+  const airbnbGray = '#767676';
+
+  // Show key input modal if no key - Airbnb style
   if (showKeyModal && !privateKey) {
     return (
-      <div className={`flex items-center justify-center p-4 ${isDesktop ? 'min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800' : 'h-dvh bg-black'}`}>
-        <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-md w-full">
-          <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">
-            Access Denied
+      <div className={`flex items-center justify-center p-4 ${isDesktop ? 'min-h-screen' : 'h-dvh'}`} style={{ backgroundColor: airbnbRed }}>
+        <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full border border-gray-200">
+          <h2 className="text-2xl font-semibold mb-6" style={{ color: airbnbDark }}>
+            Join this board
           </h2>
 
           <input
@@ -678,20 +595,27 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
             value={keyInput}
             onChange={(e) => setKeyInput(e.target.value)}
             placeholder="Paste Board URL to Access"
-            className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 mb-4"
+            style={{
+              color: airbnbDark,
+              // @ts-ignore
+              '--tw-ring-color': airbnbRed
+            }}
             onKeyDown={(e) => e.key === 'Enter' && handleKeySubmit()}
           />
 
           <div className="flex gap-3">
             <button
               onClick={handleKeySubmit}
-              className="flex-1 py-3 bg-white text-zinc-800 border border-zinc-300 rounded-lg font-semibold hover:bg-zinc-100 transition-colors"
+              className="flex-1 py-3 rounded-lg font-semibold text-white transition-all hover:opacity-90"
+              style={{ backgroundColor: airbnbRed }}
             >
               Join Board
             </button>
             <button
-              onClick={() => router.push('/')}
-              className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-lg font-semibold hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors"
+              onClick={() => router.push('/dom')}
+              className="flex-1 py-3 rounded-lg font-semibold border-2 transition-colors hover:bg-gray-50"
+              style={{ borderColor: airbnbDark, color: airbnbDark }}
             >
               Home
             </button>
@@ -703,20 +627,21 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
 
   if (isLoading) {
     return (
-      <div className={`flex items-center justify-center ${isDesktop ? 'min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800' : 'h-dvh bg-black'}`}>
-        <div className={`text-xl ${isDesktop ? 'text-zinc-600 dark:text-zinc-400' : 'text-white'}`}>Loading board...</div>
+      <div className={`flex items-center justify-center ${isDesktop ? 'min-h-screen' : 'h-dvh'}`} style={{ backgroundColor: airbnbRed }}>
+        <div className="text-xl text-white font-semibold">Loading board...</div>
       </div>
     );
   }
 
   if (error && !game) {
     return (
-      <div className={`flex items-center justify-center ${isDesktop ? 'min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800' : 'h-dvh bg-black'}`}>
-        <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-md text-center">
-          <div className="text-red-500 text-xl mb-4">{error}</div>
+      <div className={`flex items-center justify-center ${isDesktop ? 'min-h-screen' : 'h-dvh'}`} style={{ backgroundColor: airbnbRed }}>
+        <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md text-center">
+          <div className="text-xl mb-4" style={{ color: airbnbDark }}>{error}</div>
           <button
-            onClick={() => router.push('/')}
-            className="px-6 py-3 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-800 rounded-lg font-semibold hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors"
+            onClick={() => router.push('/dom')}
+            className="px-6 py-3 rounded-lg font-semibold text-white transition-all hover:opacity-90"
+            style={{ backgroundColor: airbnbDark }}
           >
             Home
           </button>
@@ -727,37 +652,42 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
 
   if (!game) return null;
 
-  // Top buttons for GoBoard perimeter - black bold text
+  // Top buttons for GoBoard perimeter - Airbnb style
   const topButtons = (
     <>
       <button
-        onClick={() => router.push('/')}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
+        onClick={() => router.push('/dom')}
+        className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity"
+        style={{ color: airbnbRed }}
       >
         Home
       </button>
       <button
         onClick={startReplay}
         disabled={isReplaying}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50"
+        className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50"
+        style={{ color: airbnbRed }}
       >
         {isReplaying ? 'REPLAYING' : 'REPLAY'}
       </button>
       <button
         onClick={clearBoard}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
+        className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity"
+        style={{ color: airbnbRed }}
       >
         CLEAR
       </button>
       <button
         onClick={undoMove}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
+        className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity"
+        style={{ color: airbnbRed }}
       >
         UNDO
       </button>
       <button
         onClick={handleShare}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
+        className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity"
+        style={{ color: airbnbRed }}
       >
         {copied ? 'COPIED!' : 'SHARE'}
       </button>
@@ -765,20 +695,18 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   );
 
   return (
-    <div className={`${isDesktop ? 'bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800 min-h-screen' : 'bg-black h-dvh flex flex-col'}`}>
+    <div className={`${isDesktop ? 'min-h-screen' : 'h-dvh flex flex-col'}`} style={{ backgroundColor: airbnbRed }}>
       <div className={`container mx-auto px-2 sm:px-4 ${isDesktop ? 'pt-12 sm:pt-16 pb-4 sm:pb-8' : 'flex-1 flex flex-col justify-center'} ${isTablet ? 'pb-[72px]' : ''} ${isMobile ? 'pb-4' : ''}`}>
-        {/* Buttons are now rendered inside GoBoard perimeter */}
 
-        {/* Error message */}
+        {/* Error message - Airbnb style */}
         {error && (
-          <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6 text-center">
+          <div className="bg-white/90 px-4 py-3 rounded-lg mb-6 text-center" style={{ color: airbnbDark }}>
             {error}
           </div>
         )}
 
         {/* Game Board with Stone Pots */}
         {isDesktop ? (
-          /* Desktop: Pots on left and right, 10px from board edge */
           <div className="relative flex items-center justify-center">
             <div className="relative">
               <GoBoard
@@ -790,8 +718,12 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   : null)}
                 onBoardClick={isReplaying ? () => {} : handleBoardClick}
                 topButtons={topButtons}
+                boardColor="#FFFFFF"
+                whiteStoneGlow="#FF5A5F"
+                blackStoneColor="#FF5A5F"
+                blackStoneGlow="#FFFFFF"
+                starPointColor="#FF5A5F"
               />
-              {/* Left pot (White) - positioned from left edge */}
               <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 'calc(100% + 20px)' }}>
                 <StonePot
                   color={1}
@@ -801,9 +733,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   isHoldingStone={heldStone !== null}
                   heldStoneColor={heldStone?.color ?? null}
                   onClick={() => handlePotClick(1)}
+                  innerColor="#FF5A5F"
                 />
               </div>
-              {/* Right pot (Black) - positioned from right edge */}
               <div className="absolute top-1/2 -translate-y-1/2" style={{ left: 'calc(100% + 20px)' }}>
                 <StonePot
                   color={0}
@@ -813,14 +745,14 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   isHoldingStone={heldStone !== null}
                   heldStoneColor={heldStone?.color ?? null}
                   onClick={() => handlePotClick(0)}
+                  innerColor="#FFFFFF"
+                  stonePreviewColor="#FF5A5F"
                 />
               </div>
             </div>
           </div>
         ) : isTablet ? (
-          /* Tablet: Menus on board edges (top rotated, bottom normal), pots above/below */
           <div className="flex flex-col items-center">
-            {/* Top pot centered */}
             <div className="flex justify-center mb-4">
               <StonePot
                 color={1}
@@ -831,6 +763,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 heldStoneColor={heldStone?.color ?? null}
                 rotated={true}
                 onClick={() => handlePotClick(1)}
+                innerColor="#FF5A5F"
               />
             </div>
             <GoBoard
@@ -843,26 +776,30 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
               onBoardClick={isReplaying ? () => {} : handleBoardClick}
               topButtons={
                 <div className="flex items-center justify-between w-full rotate-180">
-                  <button onClick={handleShare} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                  <button onClick={handleShare} className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: airbnbRed }}>
                     {copied ? 'COPIED!' : 'SHARE'}
                   </button>
-                  <button onClick={undoMove} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                  <button onClick={undoMove} className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: airbnbRed }}>
                     UNDO
                   </button>
-                  <button onClick={clearBoard} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                  <button onClick={clearBoard} className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: airbnbRed }}>
                     CLEAR
                   </button>
-                  <button onClick={startReplay} disabled={isReplaying} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50">
+                  <button onClick={startReplay} disabled={isReplaying} className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50" style={{ color: airbnbRed }}>
                     {isReplaying ? 'REPLAYING' : 'REPLAY'}
                   </button>
-                  <button onClick={() => router.push('/')} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
+                  <button onClick={() => router.push('/dom')} className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: airbnbRed }}>
                     Home
                   </button>
                 </div>
               }
               bottomButtons={topButtons}
+              boardColor="#FFFFFF"
+                whiteStoneGlow="#FF5A5F"
+                blackStoneColor="#FF5A5F"
+                blackStoneGlow="#FFFFFF"
+                starPointColor="#FF5A5F"
             />
-            {/* Bottom pot centered */}
             <div className="flex justify-center mt-4">
               <StonePot
                 color={0}
@@ -872,11 +809,12 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 isHoldingStone={heldStone !== null}
                 heldStoneColor={heldStone?.color ?? null}
                 onClick={() => handlePotClick(0)}
+                innerColor="#FFFFFF"
+                stonePreviewColor="#FF5A5F"
               />
             </div>
           </div>
         ) : (
-          /* Mobile: Both pots at bottom, side by side */
           <div className="flex flex-col items-center">
             <GoBoard
               board={isReplaying && replayBoard ? replayBoard : game.boardState}
@@ -887,8 +825,12 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 : null)}
               onBoardClick={isReplaying ? () => {} : handleBoardClick}
               topButtons={topButtons}
+              boardColor="#FFFFFF"
+                whiteStoneGlow="#FF5A5F"
+                blackStoneColor="#FF5A5F"
+                blackStoneGlow="#FFFFFF"
+                starPointColor="#FF5A5F"
             />
-            {/* Both pots at bottom */}
             <div className="flex gap-4 mt-4">
               <StonePot
                 color={1}
@@ -899,6 +841,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 heldStoneColor={heldStone?.color ?? null}
                 small={true}
                 onClick={() => handlePotClick(1)}
+                innerColor="#FF5A5F"
               />
               <StonePot
                 color={0}
@@ -909,6 +852,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 heldStoneColor={heldStone?.color ?? null}
                 small={true}
                 onClick={() => handlePotClick(0)}
+                innerColor="#FFFFFF"
+                stonePreviewColor="#FF5A5F"
               />
             </div>
           </div>

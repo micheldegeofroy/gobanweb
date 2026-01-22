@@ -214,3 +214,15 @@ export const zenActions = pgTable('zen_actions', {
 
 export type ZenAction = typeof zenActions.$inferSelect;
 export type NewZenAction = typeof zenActions.$inferInsert;
+
+// Legal pages table - editable legal content (terms, privacy, etc.)
+export const legalPages = pgTable('legal_pages', {
+  slug: text('slug').primaryKey(), // e.g., 'terms', 'privacy'
+  title: text('title').notNull(),
+  content: text('content').notNull(), // HTML content from rich text editor
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export type LegalPage = typeof legalPages.$inferSelect;
+export type NewLegalPage = typeof legalPages.$inferInsert;

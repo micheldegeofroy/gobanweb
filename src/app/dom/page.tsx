@@ -1,0 +1,190 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function DomGoHome() {
+  const router = useRouter();
+  const [boardSize, setBoardSize] = useState<9 | 13 | 19>(13);
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState('');
+
+  // Airbnb colors
+  const airbnbRed = '#FF5A5F';
+  const airbnbDark = '#484848';
+
+  const createGame = async () => {
+    setIsCreating(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/games', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boardSize }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to create board');
+      }
+
+      const data = await res.json();
+
+      // Store the private key in localStorage for this game
+      localStorage.setItem(`game_${data.gameId}_privateKey`, data.privateKey);
+
+      // Navigate to Dom game page with key in URL
+      router.push(`/dom/${data.gameId}?key=${encodeURIComponent(data.privateKey)}`);
+    } catch (err) {
+      setError('Failed to create board. Please try again.');
+      console.error(err);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: airbnbRed }}>
+      <div className="container mx-auto px-4 py-16">
+        <header className="text-center mb-16">
+          <h1 className="text-5xl font-bold mb-4 text-white">
+            Go Dom
+          </h1>
+          <p className="text-xl text-white/80">
+            Classic Go, Fresh Style
+          </p>
+        </header>
+
+        <div className="max-w-md mx-auto">
+          {/* Card with Airbnb style */}
+          <div
+            className="rounded-xl shadow-2xl p-8 border border-gray-100"
+            style={{ backgroundColor: '#FFFFFF' }}
+          >
+            {/* Stone Preview */}
+            <div className="flex justify-center gap-6 mb-8">
+              <div
+                className="w-12 h-12 rounded-full shadow-lg"
+                style={{ backgroundColor: airbnbDark }}
+                title="Black"
+              />
+              <div
+                className="w-12 h-12 rounded-full bg-white border-2 shadow-lg"
+                style={{ borderColor: '#E0E0E0' }}
+                title="White"
+              />
+            </div>
+
+            {/* Board Size Buttons - Airbnb style */}
+            <div className="flex gap-3 mb-6">
+              {[9, 13, 19].map((size) => (
+                <button
+                  key={size}
+                  onClick={() => setBoardSize(size as 9 | 13 | 19)}
+                  className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
+                    boardSize === size
+                      ? 'text-white shadow-md'
+                      : 'bg-white border-2 hover:border-gray-400'
+                  }`}
+                  style={boardSize === size
+                    ? { backgroundColor: airbnbRed }
+                    : { borderColor: '#DDDDDD', color: airbnbDark }
+                  }
+                >
+                  {size}×{size}
+                </button>
+              ))}
+            </div>
+
+            {/* Create Board Button - Airbnb style */}
+            <button
+              onClick={createGame}
+              disabled={isCreating}
+              className="w-full py-4 rounded-lg font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ backgroundColor: airbnbRed }}
+            >
+              {isCreating ? 'Creating...' : 'Create Board'}
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="max-w-md mx-auto mt-6">
+            <div className="bg-white px-4 py-3 rounded-lg text-center" style={{ color: airbnbDark }}>
+              {error}
+            </div>
+          </div>
+        )}
+
+        {/* How it works - Airbnb style */}
+        <div className="max-w-md mx-auto mt-16 text-center">
+          <h3 className="text-xl font-semibold mb-6 text-white">
+            How it works
+          </h3>
+          <div className="grid gap-6 md:grid-cols-2 text-left">
+            <div className="bg-white rounded-xl p-6">
+              <div className="text-3xl mb-3" style={{ color: airbnbRed }}>1</div>
+              <h4 className="font-semibold mb-2" style={{ color: airbnbDark }}>
+                Create a board
+              </h4>
+              <p className="text-sm text-gray-500">
+                Choose your board size and create a new shared board.
+              </p>
+            </div>
+            <div className="bg-white rounded-xl p-6">
+              <div className="text-3xl mb-3" style={{ color: airbnbRed }}>2</div>
+              <h4 className="font-semibold mb-2" style={{ color: airbnbDark }}>
+                Share & Play
+              </h4>
+              <p className="text-sm text-gray-500">
+                Send the Board URL to anyone and play like on a real board.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Features - Airbnb style */}
+        <section className="max-w-md mx-auto mt-12 text-center">
+          <h2 className="text-xl font-semibold mb-6 text-white">
+            Why Go Dom?
+          </h2>
+          <div className="bg-white rounded-xl p-6">
+            <ul className="text-sm text-gray-600 space-y-3 text-left">
+              <li className="flex items-start gap-2">
+                <span style={{ color: airbnbRed }}>✓</span>
+                <span><strong>No login required</strong> - start playing in seconds</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span style={{ color: airbnbRed }}>✓</span>
+                <span><strong>Works everywhere</strong> - iPad, tablet, phone, desktop</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span style={{ color: airbnbRed }}>✓</span>
+                <span><strong>Real board feel</strong> - pick up, place & move stones</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span style={{ color: airbnbRed }}>✓</span>
+                <span><strong>Real-time sync</strong> - all players see moves instantly</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span style={{ color: airbnbRed }}>✓</span>
+                <span><strong>Free forever</strong> - no ads, no premium features</span>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        {/* Back to home link */}
+        <div className="max-w-md mx-auto mt-12 text-center">
+          <button
+            onClick={() => router.push('/')}
+            className="text-sm font-medium hover:underline text-white/80 hover:text-white"
+          >
+            ← Back to Classic Go
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}

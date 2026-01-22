@@ -206,8 +206,10 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
   const [replayBoardSize, setReplayBoardSize] = useState(19);
   const replayIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastActionTime = useRef<number>(0);
+  const lastOptimisticUpdate = useRef<number>(0); // Track when optimistic update was applied
 
-  const fetchGame = useCallback(async (gId: string) => {
+  const fetchGame = useCallback(async (gId: string, forceApply: boolean = false) => {
+    const fetchStartTime = Date.now();
     try {
       const res = await fetch(`/api/zen/${gId}`);
       if (!res.ok) {
@@ -216,6 +218,21 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
         return null;
       }
       const data = await res.json();
+
+      // Protect optimistic updates from being overwritten by stale poll data
+      // Skip this check if forceApply is true (used after action confirmation)
+      if (!forceApply) {
+        const OPTIMISTIC_PROTECTION_MS = 2500; // Protect for 2.5s after optimistic update
+        const timeSinceOptimistic = Date.now() - lastOptimisticUpdate.current;
+
+        // If we're within the protection window, only apply if this fetch started after
+        // the optimistic update AND enough time has passed for server to process
+        if (timeSinceOptimistic < OPTIMISTIC_PROTECTION_MS) {
+          // Don't apply - we're still protecting the optimistic update
+          return data;
+        }
+      }
+
       setGame(data);
       return data;
     } catch (err) {
@@ -231,7 +248,7 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
     const initializeGame = async (key: string) => {
       localStorage.setItem(`zen_${gameId}_privateKey`, key);
       setPrivateKey(key);
-      await fetchGame(gameId);
+      await fetchGame(gameId, true); // forceApply for initial load
       setShowKeyModal(false);
       setIsLoading(false);
     };
@@ -374,6 +391,8 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
             haptic.stonePlaced();
           }
 
+          // Mark optimistic update time to prevent stale poll responses
+          lastOptimisticUpdate.current = Date.now();
           setGame(prev => prev ? {
             ...prev,
             boardState: boardAfterCaptures,
@@ -417,6 +436,8 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
           // Figure out which player is placing (before turn advancement)
           const currentPlayer = game.currentTurn;
 
+          // Mark optimistic update time to prevent stale poll responses
+          lastOptimisticUpdate.current = Date.now();
           setGame(prev => prev ? {
             ...prev,
             boardState: boardAfterCaptures,
@@ -498,7 +519,7 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
     } catch {}
     localStorage.setItem(`zen_${gameId}_privateKey`, key);
     setPrivateKey(key);
-    await fetchGame(gameId);
+    await fetchGame(gameId, true); // forceApply for initial load
     setShowKeyModal(false);
   };
 
