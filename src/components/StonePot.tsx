@@ -11,6 +11,7 @@ interface StonePotProps {
   small?: boolean; // Use smaller size for mobile
   onClick: () => void;
   innerColor?: string; // Custom inner color for white pot (red inside with white rim)
+  outerColor?: string; // Custom outer/rim color (white center fading to this color at rim)
   hideRing?: boolean; // Hide the brown ring around the pot
   stonePreviewColor?: string; // Custom color for the stone preview (e.g., red for Dom Go)
 }
@@ -26,6 +27,7 @@ export default function StonePot({
   small = false,
   onClick,
   innerColor,
+  outerColor,
   hideRing = false,
   stonePreviewColor,
 }: StonePotProps) {
@@ -33,15 +35,23 @@ export default function StonePot({
   const canPickUp = !isHoldingStone && potCount > 0;
   const canDropHere = isHoldingStone && heldStoneColor === color;
 
-  // Custom style for pot with inner color
-  const customPotStyle = innerColor ? {
-    background: innerColor === '#FFFFFF' || innerColor === '#ffffff' || innerColor === 'white'
-      // White bowl with subtle depth effect (gray center fading to white rim)
-      ? `radial-gradient(circle, #e8e8e8 0%, #f0f0f0 40%, white 75%, white 100%)`
-      // Colored bowl (e.g., red inside with white rim)
-      : `radial-gradient(circle, ${innerColor} 0%, ${innerColor} 60%, white 85%, white 100%)`,
-    border: '3px solid white',
-  } : undefined;
+  // Custom style for pot with inner/outer color
+  const customPotStyle = outerColor
+    // Inverted: white center fading to colored rim
+    ? {
+        background: `radial-gradient(circle, white 0%, white 40%, ${outerColor} 85%, ${outerColor} 100%)`,
+        border: `3px solid ${outerColor}`,
+      }
+    : innerColor
+      ? {
+          background: innerColor === '#FFFFFF' || innerColor === '#ffffff' || innerColor === 'white'
+            // White bowl with depth: gray center → red rim → white outer rim
+            ? `radial-gradient(circle, #e8e8e8 0%, #f0f0f0 30%, #FF5A5F 70%, white 90%, white 100%)`
+            // Colored bowl (e.g., red inside with white rim)
+            : `radial-gradient(circle, ${innerColor} 0%, ${innerColor} 60%, white 85%, white 100%)`,
+          border: '3px solid white',
+        }
+      : undefined;
 
   // 3D style for stone preview when custom color is set
   const getStonePreviewStyle = () => {
@@ -111,9 +121,11 @@ export default function StonePot({
         className={`
           font-bold text-center leading-tight
           ${small ? 'text-[10px]' : 'text-xs'}
-          ${innerColor
-            ? (innerColor === '#FFFFFF' || innerColor === '#ffffff' || innerColor === 'white' ? 'text-zinc-600' : 'text-white')
-            : isBlack ? 'text-zinc-300' : 'text-zinc-600'}
+          ${outerColor
+            ? 'text-zinc-600'
+            : innerColor
+              ? (innerColor === '#FFFFFF' || innerColor === '#ffffff' || innerColor === 'white' ? 'text-zinc-600' : 'text-white')
+              : isBlack ? 'text-zinc-300' : 'text-zinc-600'}
         `}
       >
         <div className={small ? 'text-xs' : 'text-sm'}>{potCount}</div>

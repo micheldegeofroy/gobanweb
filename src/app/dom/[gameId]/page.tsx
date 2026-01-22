@@ -809,7 +809,7 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
                 isHoldingStone={heldStone !== null}
                 heldStoneColor={heldStone?.color ?? null}
                 onClick={() => handlePotClick(0)}
-                innerColor="#FFFFFF"
+                innerColor="#FF5A5F"
                 stonePreviewColor="#FF5A5F"
               />
             </div>
@@ -852,7 +852,7 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
                 heldStoneColor={heldStone?.color ?? null}
                 small={true}
                 onClick={() => handlePotClick(0)}
-                innerColor="#FFFFFF"
+                innerColor="#FF5A5F"
                 stonePreviewColor="#FF5A5F"
               />
             </div>
