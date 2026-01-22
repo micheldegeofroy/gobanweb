@@ -14,6 +14,7 @@ interface StonePotProps {
   outerColor?: string; // Custom outer/rim color (white center fading to this color at rim)
   hideRing?: boolean; // Hide the brown ring around the pot
   stonePreviewColor?: string; // Custom color for the stone preview (e.g., red for Dom Go)
+  stoneGlowColor?: string; // Glow color around the stone preview
 }
 
 export default function StonePot({
@@ -30,6 +31,7 @@ export default function StonePot({
   outerColor,
   hideRing = false,
   stonePreviewColor,
+  stoneGlowColor,
 }: StonePotProps) {
   const isBlack = color === 0;
   const canPickUp = !isHoldingStone && potCount > 0;
@@ -55,27 +57,35 @@ export default function StonePot({
 
   // 3D style for stone preview when custom color is set
   const getStonePreviewStyle = () => {
-    if (!stonePreviewColor || !isBlack) return undefined;
+    const style: React.CSSProperties = {};
 
-    // Parse hex color and create lighter/darker versions for 3D effect
-    const hex = stonePreviewColor.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
+    // Add glow effect if stoneGlowColor is set
+    if (stoneGlowColor) {
+      style.boxShadow = `0 0 12px 4px ${stoneGlowColor}`;
+    }
 
-    // Lighter for highlight (40% lighter)
-    const lighterR = Math.min(255, Math.round(r + (255 - r) * 0.4));
-    const lighterG = Math.min(255, Math.round(g + (255 - g) * 0.4));
-    const lighterB = Math.min(255, Math.round(b + (255 - b) * 0.4));
+    // Add 3D gradient for custom colored stones (e.g., red stones)
+    if (stonePreviewColor && isBlack) {
+      // Parse hex color and create lighter/darker versions for 3D effect
+      const hex = stonePreviewColor.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
 
-    // Darker for shadow (20% darker)
-    const darkerR = Math.round(r * 0.8);
-    const darkerG = Math.round(g * 0.8);
-    const darkerB = Math.round(b * 0.8);
+      // Lighter for highlight (40% lighter)
+      const lighterR = Math.min(255, Math.round(r + (255 - r) * 0.4));
+      const lighterG = Math.min(255, Math.round(g + (255 - g) * 0.4));
+      const lighterB = Math.min(255, Math.round(b + (255 - b) * 0.4));
 
-    return {
-      background: `radial-gradient(circle at 30% 30%, rgb(${lighterR}, ${lighterG}, ${lighterB}) 0%, rgb(${darkerR}, ${darkerG}, ${darkerB}) 100%)`,
-    };
+      // Darker for shadow (20% darker)
+      const darkerR = Math.round(r * 0.8);
+      const darkerG = Math.round(g * 0.8);
+      const darkerB = Math.round(b * 0.8);
+
+      style.background = `radial-gradient(circle at 30% 30%, rgb(${lighterR}, ${lighterG}, ${lighterB}) 0%, rgb(${darkerR}, ${darkerG}, ${darkerB}) 100%)`;
+    }
+
+    return Object.keys(style).length > 0 ? style : undefined;
   };
 
   return (

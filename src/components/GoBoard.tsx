@@ -17,10 +17,13 @@ interface GoBoardProps {
   topButtons?: React.ReactNode;
   bottomButtons?: React.ReactNode;
   boardColor?: string; // Custom board background color
+  whiteStoneColor?: string; // Custom color for white stones
   whiteStoneGlow?: string; // Custom glow color for white stones
   blackStoneColor?: string; // Custom color for black stones
   blackStoneGlow?: string; // Custom glow color for black stones
   starPointColor?: string; // Custom color for star points (hoshi)
+  whiteStoneMarker?: string; // Custom color for last move marker on white stones
+  hideCoordinates?: boolean; // Hide coordinate labels around the board
 }
 
 // Get max board size based on screen dimensions
@@ -62,10 +65,13 @@ export default function GoBoard({
   topButtons,
   bottomButtons,
   boardColor = '#DEB887', // Default: Burlywood - traditional Go board color
+  whiteStoneColor, // Optional custom color for white stones
   whiteStoneGlow, // Optional glow color for white stones
   blackStoneColor, // Optional custom color for black stones
   blackStoneGlow, // Optional glow color for black stones
   starPointColor = '#3d2914', // Default: dark brown for star points
+  whiteStoneMarker, // Optional custom color for last move marker on white stones
+  hideCoordinates = false, // Hide coordinate labels around the board
 }: GoBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -170,9 +176,29 @@ export default function GoBoard({
         gradient.addColorStop(1, '#1a1a1a');
       }
     } else {
-      // White stone
-      gradient.addColorStop(0, '#ffffff');
-      gradient.addColorStop(1, '#d0d0d0');
+      // White stone (or custom color)
+      if (whiteStoneColor) {
+        // Create 3D effect: lighter highlight on top-left, original color for shadow
+        const hex = whiteStoneColor.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        // Lighten by blending with white (40% lighter)
+        const lighterR = Math.min(255, Math.round(r + (255 - r) * 0.4));
+        const lighterG = Math.min(255, Math.round(g + (255 - g) * 0.4));
+        const lighterB = Math.min(255, Math.round(b + (255 - b) * 0.4));
+        const lighterColor = `rgb(${lighterR}, ${lighterG}, ${lighterB})`;
+        // Darken for shadow edge (20% darker)
+        const darkerR = Math.round(r * 0.8);
+        const darkerG = Math.round(g * 0.8);
+        const darkerB = Math.round(b * 0.8);
+        const darkerColor = `rgb(${darkerR}, ${darkerG}, ${darkerB})`;
+        gradient.addColorStop(0, lighterColor);
+        gradient.addColorStop(1, darkerColor);
+      } else {
+        gradient.addColorStop(0, '#ffffff');
+        gradient.addColorStop(1, '#d0d0d0');
+      }
     }
 
     // Draw shadow
@@ -197,7 +223,7 @@ export default function GoBoard({
     if (isGhost) {
       ctx.globalAlpha = 1;
     }
-  }, [whiteStoneGlow, blackStoneColor, blackStoneGlow]);
+  }, [whiteStoneColor, whiteStoneGlow, blackStoneColor, blackStoneGlow]);
 
   // Get star points based on board size
   const getStarPoints = useCallback((size: number): Position[] => {
@@ -282,48 +308,51 @@ export default function GoBoard({
       ctx.fill();
     }
 
-    // Draw coordinate numbers at top edge (size, size-1, ... 1) - rotated for opponent
-    ctx.fillStyle = '#3d2914';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    for (let i = 0; i < size; i++) {
-      const x = padding + i * cellSize;
-      const y = padding - cellSize * 0.4;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(Math.PI);
-      ctx.fillText(String(size - i), 0, 0);
-      ctx.restore();
-    }
+    // Draw coordinate labels if not hidden
+    if (!hideCoordinates) {
+      // Draw coordinate numbers at top edge (size, size-1, ... 1) - rotated for opponent
+      ctx.fillStyle = '#3d2914';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      for (let i = 0; i < size; i++) {
+        const x = padding + i * cellSize;
+        const y = padding - cellSize * 0.4;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(Math.PI);
+        ctx.fillText(String(size - i), 0, 0);
+        ctx.restore();
+      }
 
-    // Draw coordinate numbers at bottom edge (size, size-1, ... 1)
-    ctx.textBaseline = 'top';
-    for (let i = 0; i < size; i++) {
-      const x = padding + i * cellSize;
-      const y = padding + (size - 1) * cellSize + cellSize * 0.4;
-      ctx.fillText(String(size - i), x, y);
-    }
+      // Draw coordinate numbers at bottom edge (size, size-1, ... 1)
+      ctx.textBaseline = 'top';
+      for (let i = 0; i < size; i++) {
+        const x = padding + i * cellSize;
+        const y = padding + (size - 1) * cellSize + cellSize * 0.4;
+        ctx.fillText(String(size - i), x, y);
+      }
 
-    // Draw coordinate letters on left edge (A, B, C...)
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    for (let i = 0; i < size; i++) {
-      const x = padding - cellSize * 0.4;
-      const y = padding + i * cellSize;
-      ctx.fillText(String.fromCharCode(65 + i), x, y);
-    }
+      // Draw coordinate letters on left edge (A, B, C...)
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < size; i++) {
+        const x = padding - cellSize * 0.4;
+        const y = padding + i * cellSize;
+        ctx.fillText(String.fromCharCode(65 + i), x, y);
+      }
 
-    // Draw coordinate letters on right edge (A, B, C...) - rotated for opponent
-    ctx.textAlign = 'right';
-    for (let i = 0; i < size; i++) {
-      const x = padding + (size - 1) * cellSize + cellSize * 0.4;
-      const y = padding + i * cellSize;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(Math.PI);
-      ctx.fillText(String.fromCharCode(65 + i), 0, 0);
-      ctx.restore();
+      // Draw coordinate letters on right edge (A, B, C...) - rotated for opponent
+      ctx.textAlign = 'right';
+      for (let i = 0; i < size; i++) {
+        const x = padding + (size - 1) * cellSize + cellSize * 0.4;
+        const y = padding + i * cellSize;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(Math.PI);
+        ctx.fillText(String.fromCharCode(65 + i), 0, 0);
+        ctx.restore();
+      }
     }
 
     // Draw stones on board
@@ -348,7 +377,7 @@ export default function GoBoard({
       const cy = padding + lastMove.y * cellSize;
       const stoneColor = board[lastMove.y][lastMove.x];
       const isBlackStone = Number(stoneColor) === 0;
-      ctx.strokeStyle = isBlackStone ? '#ffffff' : '#000000';
+      ctx.strokeStyle = isBlackStone ? '#ffffff' : (whiteStoneMarker || '#000000');
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(cx, cy, cellSize * 0.35, 0, Math.PI * 2);
@@ -372,7 +401,7 @@ export default function GoBoard({
       ctx.arc(cx, cy, cellSize * 0.5, 0, Math.PI * 2);
       ctx.stroke();
     }
-  }, [board, size, canvasSize, heldStone, lastMove, hoverPos, cellSize, padding, drawStone, getStarPoints, boardColor, starPointColor]);
+  }, [board, size, canvasSize, heldStone, lastMove, hoverPos, cellSize, padding, drawStone, getStarPoints, boardColor, starPointColor, whiteStoneMarker]);
 
   // Handle resize
   useEffect(() => {

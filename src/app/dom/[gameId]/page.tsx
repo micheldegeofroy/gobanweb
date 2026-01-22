@@ -723,6 +723,8 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
                 blackStoneColor="#FF5A5F"
                 blackStoneGlow="#FFFFFF"
                 starPointColor="#FF5A5F"
+                whiteStoneMarker="#FF5A5F"
+                hideCoordinates={true}
               />
               <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 'calc(100% + 20px)' }}>
                 <StonePot
@@ -733,7 +735,8 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
                   isHoldingStone={heldStone !== null}
                   heldStoneColor={heldStone?.color ?? null}
                   onClick={() => handlePotClick(1)}
-                  innerColor="#FF5A5F"
+                  innerColor="#FFFFFF"
+                  stoneGlowColor="#FF5A5F"
                 />
               </div>
               <div className="absolute top-1/2 -translate-y-1/2" style={{ left: 'calc(100% + 20px)' }}>
@@ -763,7 +766,8 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
                 heldStoneColor={heldStone?.color ?? null}
                 rotated={true}
                 onClick={() => handlePotClick(1)}
-                innerColor="#FF5A5F"
+                innerColor="#FFFFFF"
+                stoneGlowColor="#FF5A5F"
               />
             </div>
             <GoBoard
@@ -799,6 +803,8 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
                 blackStoneColor="#FF5A5F"
                 blackStoneGlow="#FFFFFF"
                 starPointColor="#FF5A5F"
+                whiteStoneMarker="#FF5A5F"
+                hideCoordinates={true}
             />
             <div className="flex justify-center mt-4">
               <StonePot
@@ -830,6 +836,8 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
                 blackStoneColor="#FF5A5F"
                 blackStoneGlow="#FFFFFF"
                 starPointColor="#FF5A5F"
+                whiteStoneMarker="#FF5A5F"
+                hideCoordinates={true}
             />
             <div className="flex gap-4 mt-4">
               <StonePot
@@ -841,7 +849,8 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
                 heldStoneColor={heldStone?.color ?? null}
                 small={true}
                 onClick={() => handlePotClick(1)}
-                innerColor="#FF5A5F"
+                innerColor="#FFFFFF"
+                stoneGlowColor="#FF5A5F"
               />
               <StonePot
                 color={0}
@@ -852,7 +861,7 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
                 heldStoneColor={heldStone?.color ?? null}
                 small={true}
                 onClick={() => handlePotClick(0)}
-                innerColor="#FF5A5F"
+                innerColor="#FFFFFF"
                 stonePreviewColor="#FF5A5F"
               />
             </div>
