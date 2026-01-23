@@ -118,6 +118,7 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
     propRotation: number;
     targetHit: boolean;
     targetPos: Position | null;
+    droneColor?: string;
   } | null>(null);
   const droneAnimationRef = useRef<number | null>(null);
   const hasInitialized = useRef(false);
@@ -135,6 +136,7 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
     propRotation: number;
     targetHit: boolean;
     targetPos: Position | null;
+    droneColor?: string;
   } | null>(null);
   const replayDroneRef = useRef<number | null>(null);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
@@ -319,7 +321,8 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
   }, []);
 
   // Start drone animation
-  const startDroneAnimation = useCallback((targetX: number, targetY: number, targetHit: boolean) => {
+  // droneColor: red (#D52B1E) for Russian drone, blue (#005BBB) for Ukrainian drone
+  const startDroneAnimation = useCallback((targetX: number, targetY: number, targetHit: boolean, droneColor: string) => {
     if (!game) return;
 
     // Cancel any existing animation
@@ -351,6 +354,7 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
         propRotation,
         targetHit,
         targetPos: { x: targetX, y: targetY },
+        droneColor,
       });
 
       if (progress < 1) {
@@ -391,6 +395,7 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
     if (!privateKey || !game) return;
 
     lastActionTime.current = Date.now();
+    lastOptimisticUpdate.current = Date.now(); // Protect against polling overwrite
 
     try {
       const res = await fetch(`/api/bang/${gameId}/action`, {
@@ -410,6 +415,7 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
       const data = await res.json();
 
       // Update game state from server response
+      lastOptimisticUpdate.current = Date.now(); // Refresh protection after update
       setGame(prev => prev ? {
         ...prev,
         boardState: data.boardState,
@@ -440,11 +446,15 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
       }
 
       // Show drone animation if triggered
+      // Drone is from the enemy: if targeting black (Russia), drone is Ukrainian (blue)
+      // If targeting white (Ukraine), drone is Russian (red)
       if (data.droneStrike) {
+        const droneColor = data.droneStrike.targetColor === 0 ? '#005BBB' : '#D52B1E';
         startDroneAnimation(
           data.droneStrike.targetX,
           data.droneStrike.targetY,
-          true
+          true,
+          droneColor
         );
       }
 
@@ -698,6 +708,9 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
   const clearBoard = async () => {
     if (!privateKey || !gameId || !game || isNuking) return;
 
+    lastActionTime.current = Date.now();
+    lastOptimisticUpdate.current = Date.now();
+
     // Collect all stone positions
     const stonePositions: Position[] = [];
     for (let y = 0; y < game.boardSize; y++) {
@@ -753,6 +766,7 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
         return;
       }
       const data = await res.json();
+      lastOptimisticUpdate.current = Date.now();
       setGame(prev => prev ? {
         ...prev,
         boardState: data.boardState,
@@ -780,6 +794,10 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
 
   const undoMove = async () => {
     if (!privateKey || !gameId) return;
+
+    lastActionTime.current = Date.now();
+    lastOptimisticUpdate.current = Date.now();
+
     try {
       const res = await fetch(`/api/bang/${gameId}/undo`, {
         method: 'POST',
@@ -788,6 +806,7 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
       });
       if (!res.ok) return;
       const data = await res.json();
+      lastOptimisticUpdate.current = Date.now();
       setGame(prev => prev ? {
         ...prev,
         boardState: data.boardState,
@@ -818,7 +837,7 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
   };
 
   // Start replay drone animation
-  const startReplayDroneAnimation = useCallback((targetX: number, targetY: number, boardSize: number) => {
+  const startReplayDroneAnimation = useCallback((targetX: number, targetY: number, boardSize: number, droneColor: string) => {
     // Cancel any existing animation
     if (replayDroneRef.current) {
       cancelAnimationFrame(replayDroneRef.current);
@@ -845,6 +864,7 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
         propRotation,
         targetHit: true,
         targetPos: { x: targetX, y: targetY },
+        droneColor,
       });
 
       if (progress < 1) {
@@ -888,10 +908,12 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
           // Animate drone if this action had a drone strike
           if (currentAction?.droneStrike) {
             console.log('Replay drone strike at:', currentAction.droneStrike.targetX, currentAction.droneStrike.targetY);
+            const droneColor = currentAction.droneStrike.targetColor === 0 ? '#005BBB' : '#D52B1E';
             startReplayDroneAnimation(
               currentAction.droneStrike.targetX,
               currentAction.droneStrike.targetY,
-              game.boardSize
+              game.boardSize,
+              droneColor
             );
           }
 
@@ -1047,10 +1069,10 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
     </>
   );
 
-  // Stats display for bottom of board
-  const statsDisplay = (
-    <div className="text-center py-2 mt-4">
-      <span className="text-xs font-bold" style={{ color: camoTan }}>
+  // Stats overlay for on the board
+  const statsOverlay = (
+    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1">
+      <span className="text-xs font-bold whitespace-nowrap" style={{ color: camoTan }}>
         Turn: {game.currentTurn === 0 ? 'RUS' : 'UKR'} | KIA Mine B:{game.blackExploded} W:{game.whiteExploded} | KIA Drone B:{game.blackDroned} W:{game.whiteDroned}
       </span>
     </div>
@@ -1091,6 +1113,7 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
                 explosionPositions={isReplaying ? (replayExplosion ? [replayExplosion] : []) : (explosionPos ? [explosionPos] : [])}
                 droneAnimation={isReplaying ? replayDrone : droneAnimation}
               />
+              {statsOverlay}
               <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 'calc(100% + 20px)' }}>
                 <StonePot
                   color={1}
@@ -1100,8 +1123,9 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
                   isHoldingStone={heldStone !== null}
                   heldStoneColor={heldStone?.color ?? null}
                   onClick={() => handlePotClick(1)}
-                  innerColor={camoOlive}
+                  outerColor="#005BBB"
                   isCurrentTurn={game.currentTurn === 1}
+                  turnFlashColor="#005BBB"
                   stoneFlag="ukraine"
                 />
               </div>
@@ -1114,14 +1138,14 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
                   isHoldingStone={heldStone !== null}
                   heldStoneColor={heldStone?.color ?? null}
                   onClick={() => handlePotClick(0)}
-                  innerColor={camoOlive}
+                  outerColor="#D52B1E"
                   isCurrentTurn={game.currentTurn === 0}
+                  turnFlashColor="#D52B1E"
                   stoneFlag="russia"
                 />
               </div>
               </div>
             </div>
-            {statsDisplay}
           </div>
         ) : isTablet ? (
           <div className="flex flex-col items-center">
@@ -1140,40 +1164,43 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
                 stoneFlag="ukraine"
               />
             </div>
-            <GoBoard
-              board={isReplaying && replayBoard ? replayBoard : game.boardState}
-              size={game.boardSize}
-              heldStone={isReplaying ? null : heldStone}
-              lastMove={isReplaying ? replayLastMove : (game.lastMoveX !== null && game.lastMoveY !== null
-                ? { x: game.lastMoveX, y: game.lastMoveY }
-                : null)}
-              onBoardClick={isReplaying ? () => {} : handleBoardClick}
-              topButtons={
-                <div className="flex items-center justify-between w-full rotate-180">
-                  <button onClick={handleShare} className="font-bold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: camoTan }}>
-                    {copied ? 'COPIED!' : 'SHARE'}
-                  </button>
-                  <button onClick={clearBoard} className="font-bold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: camoTan }}>
-                    NUKE
-                  </button>
-                  <button onClick={startReplay} disabled={isReplaying} className="font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50" style={{ color: camoTan }}>
-                    {isReplaying ? 'REPLAYING' : 'REPLAY'}
-                  </button>
-                  <button onClick={() => router.push('/bang')} className="font-bold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: camoTan }}>
-                    Base
-                  </button>
-                </div>
-              }
-              bottomButtons={topButtons}
-              boardColor="#3D3D3D"
-              starPointColor={camoTan}
-              blackStoneFlag="russia"
+            <div className="relative">
+              <GoBoard
+                board={isReplaying && replayBoard ? replayBoard : game.boardState}
+                size={game.boardSize}
+                heldStone={isReplaying ? null : heldStone}
+                lastMove={isReplaying ? replayLastMove : (game.lastMoveX !== null && game.lastMoveY !== null
+                  ? { x: game.lastMoveX, y: game.lastMoveY }
+                  : null)}
+                onBoardClick={isReplaying ? () => {} : handleBoardClick}
+                topButtons={
+                  <div className="flex items-center justify-between w-full rotate-180">
+                    <button onClick={handleShare} className="font-bold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: camoTan }}>
+                      {copied ? 'COPIED!' : 'SHARE'}
+                    </button>
+                    <button onClick={clearBoard} className="font-bold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: camoTan }}>
+                      NUKE
+                    </button>
+                    <button onClick={startReplay} disabled={isReplaying} className="font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50" style={{ color: camoTan }}>
+                      {isReplaying ? 'REPLAYING' : 'REPLAY'}
+                    </button>
+                    <button onClick={() => router.push('/bang')} className="font-bold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: camoTan }}>
+                      Base
+                    </button>
+                  </div>
+                }
+                bottomButtons={topButtons}
+                boardColor="#3D3D3D"
+                starPointColor={camoTan}
+                blackStoneFlag="russia"
                 whiteStoneFlag="ukraine"
                 hideLastMoveMarker
                 hideHoverRing
-              explosionPositions={explosionPos ? [explosionPos] : []}
-              droneAnimation={droneAnimation}
-            />
+                explosionPositions={isReplaying ? (replayExplosion ? [replayExplosion] : []) : (explosionPos ? [explosionPos] : [])}
+                droneAnimation={isReplaying ? replayDrone : droneAnimation}
+              />
+              {statsOverlay}
+            </div>
             <div className="flex justify-center mt-4">
               <StonePot
                 color={0}
@@ -1188,28 +1215,30 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
                 stoneFlag="russia"
               />
             </div>
-            {statsDisplay}
           </div>
         ) : (
           <div className="flex flex-col items-center">
-            <GoBoard
-              board={isReplaying && replayBoard ? replayBoard : game.boardState}
-              size={game.boardSize}
-              heldStone={isReplaying ? null : heldStone}
-              lastMove={isReplaying ? replayLastMove : (game.lastMoveX !== null && game.lastMoveY !== null
-                ? { x: game.lastMoveX, y: game.lastMoveY }
-                : null)}
-              onBoardClick={isReplaying ? () => {} : handleBoardClick}
-              topButtons={topButtons}
-              boardColor="#3D3D3D"
-              starPointColor={camoTan}
-              blackStoneFlag="russia"
+            <div className="relative">
+              <GoBoard
+                board={isReplaying && replayBoard ? replayBoard : game.boardState}
+                size={game.boardSize}
+                heldStone={isReplaying ? null : heldStone}
+                lastMove={isReplaying ? replayLastMove : (game.lastMoveX !== null && game.lastMoveY !== null
+                  ? { x: game.lastMoveX, y: game.lastMoveY }
+                  : null)}
+                onBoardClick={isReplaying ? () => {} : handleBoardClick}
+                topButtons={topButtons}
+                boardColor="#3D3D3D"
+                starPointColor={camoTan}
+                blackStoneFlag="russia"
                 whiteStoneFlag="ukraine"
                 hideLastMoveMarker
                 hideHoverRing
-              explosionPositions={explosionPos ? [explosionPos] : []}
-              droneAnimation={droneAnimation}
-            />
+                explosionPositions={isReplaying ? (replayExplosion ? [replayExplosion] : []) : (explosionPos ? [explosionPos] : [])}
+                droneAnimation={isReplaying ? replayDrone : droneAnimation}
+              />
+              {statsOverlay}
+            </div>
             <div className="flex gap-4 mt-4">
               <StonePot
                 color={1}
@@ -1238,7 +1267,6 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
                 stoneFlag="russia"
               />
             </div>
-            {statsDisplay}
           </div>
         )}
 

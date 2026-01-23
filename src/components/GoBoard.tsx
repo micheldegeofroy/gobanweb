@@ -34,6 +34,7 @@ interface GoBoardProps {
     progress: number; // 0-1 animation progress
     propRotation: number; // Propeller rotation angle in radians
     targetHit: boolean; // Whether drone will hit a target
+    droneColor?: string; // Color of the drone (red for Russia, blue for Ukraine)
   } | null;
 }
 
@@ -249,6 +250,26 @@ export default function GoBoard({
       ctx.fillStyle = '#D52B1E';
       ctx.fillRect(cx - radius, topY + stripeHeight * 2, radius * 2, stripeHeight);
 
+      // 3D highlight overlay
+      const highlightGrad = ctx.createRadialGradient(
+        cx - radius * 0.3, cy - radius * 0.3, 0,
+        cx - radius * 0.3, cy - radius * 0.3, radius * 1.2
+      );
+      highlightGrad.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+      highlightGrad.addColorStop(0.3, 'rgba(255, 255, 255, 0.2)');
+      highlightGrad.addColorStop(0.6, 'rgba(255, 255, 255, 0)');
+      highlightGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = highlightGrad;
+      ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+
+      // Edge shadow for 3D depth
+      const edgeGrad = ctx.createRadialGradient(cx, cy, radius * 0.5, cx, cy, radius);
+      edgeGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      edgeGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0)');
+      edgeGrad.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+      ctx.fillStyle = edgeGrad;
+      ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+
       ctx.restore();
 
       // Add outline
@@ -274,6 +295,26 @@ export default function GoBoard({
       // Yellow stripe (bottom)
       ctx.fillStyle = '#FFD500';
       ctx.fillRect(cx - radius, topY + stripeHeight, radius * 2, stripeHeight);
+
+      // 3D highlight overlay
+      const highlightGrad = ctx.createRadialGradient(
+        cx - radius * 0.3, cy - radius * 0.3, 0,
+        cx - radius * 0.3, cy - radius * 0.3, radius * 1.2
+      );
+      highlightGrad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+      highlightGrad.addColorStop(0.3, 'rgba(255, 255, 255, 0.15)');
+      highlightGrad.addColorStop(0.6, 'rgba(255, 255, 255, 0)');
+      highlightGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = highlightGrad;
+      ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+
+      // Edge shadow for 3D depth
+      const edgeGrad = ctx.createRadialGradient(cx, cy, radius * 0.5, cx, cy, radius);
+      edgeGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      edgeGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0)');
+      edgeGrad.addColorStop(1, 'rgba(0, 0, 0, 0.25)');
+      ctx.fillStyle = edgeGrad;
+      ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
 
       ctx.restore();
 
@@ -520,7 +561,7 @@ export default function GoBoard({
 
     // Draw FPV drone animation
     if (droneAnimation && droneAnimation.path.length >= 2) {
-      const { path, progress, propRotation } = droneAnimation;
+      const { path, progress, propRotation, droneColor } = droneAnimation;
       const droneSize = cellSize * 0.55; // Stone size + 10%
 
       // Calculate current position along path
@@ -543,8 +584,9 @@ export default function GoBoard({
       ctx.translate(droneX, droneY);
       ctx.rotate(droneAngle + Math.PI / 2); // Point drone in direction of travel
 
-      // Draw FPV drone body (black)
-      ctx.fillStyle = '#000000';
+      // Draw FPV drone body (colored based on nation)
+      const bodyColor = droneColor || '#000000';
+      ctx.fillStyle = bodyColor;
 
       // Main body (rounded rectangle)
       const bodyW = droneSize * 0.4;
@@ -582,9 +624,9 @@ export default function GoBoard({
         ctx.arc(0, 0, motorRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Spinning propeller blades
+        // Spinning propeller blades (slightly lighter than body)
         ctx.rotate(propRotation + i * Math.PI / 2); // Offset each prop
-        ctx.fillStyle = '#333333';
+        ctx.fillStyle = droneColor ? `${droneColor}99` : '#333333'; // 60% opacity of drone color
         for (let b = 0; b < 2; b++) {
           ctx.save();
           ctx.rotate(b * Math.PI);

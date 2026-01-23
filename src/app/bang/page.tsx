@@ -99,37 +99,86 @@ export default function BangGoHome() {
             >
               {/* Mine Warning */}
               <div
-                className="text-center mb-6 py-2 rounded-lg"
+                className="text-center mb-6 py-2 rounded-lg flex items-center justify-center gap-2"
                 style={{ backgroundColor: camoBrown }}
               >
-                <span className="text-2xl">💣</span>
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="black">
+                  {/* Central body */}
+                  <rect x="13" y="11" width="6" height="10" rx="2"/>
+                  {/* 4 diagonal arms */}
+                  <rect x="15" y="11" width="2" height="10" transform="rotate(-45 16 16)"/>
+                  <rect x="15" y="11" width="2" height="10" transform="rotate(45 16 16)"/>
+                  <rect x="15" y="11" width="2" height="10" transform="rotate(135 16 16)"/>
+                  <rect x="15" y="11" width="2" height="10" transform="rotate(-135 16 16)"/>
+                  {/* 4 propeller motors */}
+                  <circle cx="9" cy="9" r="3"/>
+                  <circle cx="23" cy="9" r="3"/>
+                  <circle cx="9" cy="23" r="3"/>
+                  <circle cx="23" cy="23" r="3"/>
+                  {/* Propeller blades */}
+                  <ellipse cx="9" cy="9" rx="4" ry="1.2" fill="#333"/>
+                  <ellipse cx="9" cy="9" rx="1.2" ry="4" fill="#333"/>
+                  <ellipse cx="23" cy="9" rx="4" ry="1.2" fill="#333"/>
+                  <ellipse cx="23" cy="9" rx="1.2" ry="4" fill="#333"/>
+                  <ellipse cx="9" cy="23" rx="4" ry="1.2" fill="#333"/>
+                  <ellipse cx="9" cy="23" rx="1.2" ry="4" fill="#333"/>
+                  <ellipse cx="23" cy="23" rx="4" ry="1.2" fill="#333"/>
+                  <ellipse cx="23" cy="23" rx="1.2" ry="4" fill="#333"/>
+                </svg>
                 <span
-                  className="ml-2 font-bold tracking-wider"
+                  className="font-bold tracking-wider"
                   style={{ color: camoTan }}
                 >
                   DANGER ZONE
                 </span>
-                <span className="ml-2 text-2xl">💥</span>
+                <span className="text-2xl">💥</span>
               </div>
 
-              {/* Stone Preview */}
+              {/* Stone Preview - Russian and Ukrainian flags */}
               <div className="flex justify-center gap-6 mb-8">
+                {/* Russian flag stone */}
                 <div
-                  className="w-12 h-12 rounded-full shadow-xl"
+                  className="w-14 h-14 rounded-full overflow-hidden relative"
                   style={{
-                    background: 'radial-gradient(circle at 30% 30%, #333 0%, #000 100%)',
-                    boxShadow: '2px 2px 4px rgba(0,0,0,0.5), inset -2px -2px 4px rgba(0,0,0,0.3), inset 2px 2px 4px rgba(100,100,100,0.2)'
+                    boxShadow: '3px 4px 8px rgba(0,0,0,0.6), 1px 1px 2px rgba(0,0,0,0.3)',
                   }}
-                  title="Black"
-                />
+                  title="Russia"
+                >
+                  {/* Flag stripes */}
+                  <div className="w-full h-full flex flex-col">
+                    <div className="flex-1" style={{ backgroundColor: '#FFFFFF' }} />
+                    <div className="flex-1" style={{ backgroundColor: '#0039A6' }} />
+                    <div className="flex-1" style={{ backgroundColor: '#D52B1E' }} />
+                  </div>
+                  {/* 3D highlight overlay */}
+                  <div
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      background: 'radial-gradient(ellipse 80% 50% at 35% 25%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.2) 30%, transparent 60%), radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.3) 100%)',
+                    }}
+                  />
+                </div>
+                {/* Ukrainian flag stone */}
                 <div
-                  className="w-12 h-12 rounded-full shadow-xl"
+                  className="w-14 h-14 rounded-full overflow-hidden relative"
                   style={{
-                    background: 'radial-gradient(circle at 30% 30%, #ffffff 0%, #d0d0d0 100%)',
-                    boxShadow: '2px 2px 4px rgba(0,0,0,0.3), inset -2px -2px 4px rgba(0,0,0,0.1), inset 2px 2px 4px rgba(255,255,255,0.5)'
+                    boxShadow: '3px 4px 8px rgba(0,0,0,0.6), 1px 1px 2px rgba(0,0,0,0.3)',
                   }}
-                  title="White"
-                />
+                  title="Ukraine"
+                >
+                  {/* Flag stripes */}
+                  <div className="w-full h-full flex flex-col">
+                    <div className="flex-1" style={{ backgroundColor: '#005BBB' }} />
+                    <div className="flex-1" style={{ backgroundColor: '#FFD500' }} />
+                  </div>
+                  {/* 3D highlight overlay */}
+                  <div
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      background: 'radial-gradient(ellipse 80% 50% at 35% 25%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.15) 30%, transparent 60%), radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.25) 100%)',
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Board Size Buttons - Military style */}
@@ -238,16 +287,39 @@ export default function BangGoHome() {
             >
               Explosion Rules
             </h3>
-            <ul
-              className="text-xs space-y-1 text-left px-4"
-              style={{ color: '#999' }}
+            <div
+              className="rounded-xl p-6 border-2"
+              style={{
+                backgroundColor: '#2D2D2D80',
+                borderColor: camoOlive
+              }}
             >
-              <li>• <strong style={{ color: camoTan }}>Hidden Mines</strong> - 10% of board intersections contain invisible mines</li>
-              <li>• <strong style={{ color: camoTan }}>Trigger</strong> - Place or move a stone onto a mine to trigger explosion</li>
-              <li>• <strong style={{ color: camoTan }}>Blast Radius</strong> - Explosion destroys the trigger stone + all 8 adjacent stones</li>
-              <li>• <strong style={{ color: camoTan }}>Casualties</strong> - Exploded stones are lost forever (not captured)</li>
-              <li>• <strong style={{ color: camoTan }}>Standard Go</strong> - Normal capture rules still apply when no explosion</li>
-            </ul>
+              <ul
+                className="text-sm space-y-3 text-left"
+                style={{ color: '#999' }}
+              >
+                <li className="flex items-start gap-2">
+                  <span style={{ color: camoTan }}>•</span>
+                  <span><strong style={{ color: camoTan }}>Hidden Mines</strong> - 10% of board intersections contain invisible mines</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span style={{ color: camoTan }}>•</span>
+                  <span><strong style={{ color: camoTan }}>Trigger</strong> - Place or move a stone onto a mine to trigger explosion</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span style={{ color: camoTan }}>•</span>
+                  <span><strong style={{ color: camoTan }}>Blast Radius</strong> - Explosion destroys the trigger stone + all 8 adjacent stones</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span style={{ color: camoTan }}>•</span>
+                  <span><strong style={{ color: camoTan }}>Casualties</strong> - Exploded stones are lost forever (not captured)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span style={{ color: camoTan }}>•</span>
+                  <span><strong style={{ color: camoTan }}>Standard Go</strong> - Normal capture rules still apply when no explosion</span>
+                </li>
+              </ul>
+            </div>
           </div>
 
           {/* Features */}
