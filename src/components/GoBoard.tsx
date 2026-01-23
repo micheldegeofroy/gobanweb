@@ -21,9 +21,20 @@ interface GoBoardProps {
   whiteStoneGlow?: string; // Custom glow color for white stones
   blackStoneColor?: string; // Custom color for black stones
   blackStoneGlow?: string; // Custom glow color for black stones
+  blackStoneFlag?: 'russia'; // Draw black stones with flag pattern
+  whiteStoneFlag?: 'ukraine'; // Draw white stones with flag pattern
   starPointColor?: string; // Custom color for star points (hoshi)
   whiteStoneMarker?: string; // Custom color for last move marker on white stones
   hideCoordinates?: boolean; // Hide coordinate labels around the board
+  hideLastMoveMarker?: boolean; // Hide the last move marker ring
+  hideHoverRing?: boolean; // Hide the red hover ring when hovering over stones
+  explosionPositions?: Position[]; // Positions to show explosion markers (for Go Bang)
+  droneAnimation?: {
+    path: Position[]; // Path of grid positions the drone follows
+    progress: number; // 0-1 animation progress
+    propRotation: number; // Propeller rotation angle in radians
+    targetHit: boolean; // Whether drone will hit a target
+  } | null;
 }
 
 // Get max board size based on screen dimensions
@@ -69,9 +80,15 @@ export default function GoBoard({
   whiteStoneGlow, // Optional glow color for white stones
   blackStoneColor, // Optional custom color for black stones
   blackStoneGlow, // Optional glow color for black stones
+  blackStoneFlag, // Optional flag pattern for black stones
+  whiteStoneFlag, // Optional flag pattern for white stones
   starPointColor = '#3d2914', // Default: dark brown for star points
   whiteStoneMarker, // Optional custom color for last move marker on white stones
   hideCoordinates = false, // Hide coordinate labels around the board
+  hideLastMoveMarker = false, // Hide the last move marker ring
+  hideHoverRing = false, // Hide the red hover ring when hovering over stones
+  explosionPositions = [], // Positions to show explosion markers (for Go Bang)
+  droneAnimation, // Drone animation data (path, progress, rotation)
 }: GoBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -209,21 +226,80 @@ export default function GoBoard({
       ctx.fill();
     }
 
-    // Draw stone
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = gradient;
-    ctx.fill();
+    // Draw stone - check for flag pattern
+    if (color === 0 && blackStoneFlag === 'russia') {
+      // Draw Russian flag pattern (white, blue, red horizontal stripes)
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.clip();
 
-    // Add subtle outline
-    ctx.strokeStyle = color === 0 ? '#000000' : '#b0b0b0';
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
+      const stripeHeight = (radius * 2) / 3;
+      const topY = cy - radius;
+
+      // White stripe (top)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(cx - radius, topY, radius * 2, stripeHeight);
+
+      // Blue stripe (middle)
+      ctx.fillStyle = '#0039A6';
+      ctx.fillRect(cx - radius, topY + stripeHeight, radius * 2, stripeHeight);
+
+      // Red stripe (bottom)
+      ctx.fillStyle = '#D52B1E';
+      ctx.fillRect(cx - radius, topY + stripeHeight * 2, radius * 2, stripeHeight);
+
+      ctx.restore();
+
+      // Add outline
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = '#333333';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else if (color === 1 && whiteStoneFlag === 'ukraine') {
+      // Draw Ukrainian flag pattern (blue top, yellow bottom - 2 horizontal stripes)
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.clip();
+
+      const stripeHeight = radius; // Each stripe is half the stone
+      const topY = cy - radius;
+
+      // Blue stripe (top)
+      ctx.fillStyle = '#005BBB';
+      ctx.fillRect(cx - radius, topY, radius * 2, stripeHeight);
+
+      // Yellow stripe (bottom)
+      ctx.fillStyle = '#FFD500';
+      ctx.fillRect(cx - radius, topY + stripeHeight, radius * 2, stripeHeight);
+
+      ctx.restore();
+
+      // Add outline
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = '#333333';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else {
+      // Normal stone drawing
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Add subtle outline
+      ctx.strokeStyle = color === 0 ? '#000000' : '#b0b0b0';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
 
     if (isGhost) {
       ctx.globalAlpha = 1;
     }
-  }, [whiteStoneColor, whiteStoneGlow, blackStoneColor, blackStoneGlow]);
+  }, [whiteStoneColor, whiteStoneGlow, blackStoneColor, blackStoneGlow, blackStoneFlag, whiteStoneFlag]);
 
   // Get star points based on board size
   const getStarPoints = useCallback((size: number): Position[] => {
@@ -372,7 +448,7 @@ export default function GoBoard({
     }
 
     // Draw contrasting circle around last placed stone (white on black, black on white)
-    if (lastMove && board[lastMove.y][lastMove.x] !== null) {
+    if (!hideLastMoveMarker && lastMove && board[lastMove.y][lastMove.x] !== null) {
       const cx = padding + lastMove.x * cellSize;
       const cy = padding + lastMove.y * cellSize;
       const stoneColor = board[lastMove.y][lastMove.x];
@@ -384,6 +460,146 @@ export default function GoBoard({
       ctx.stroke();
     }
 
+    // Draw explosion markers for Go Bang - 9-point asymmetric starburst at 50% size
+    for (const explosionPos of explosionPositions) {
+      const cx = padding + explosionPos.x * cellSize;
+      const cy = padding + explosionPos.y * cellSize;
+      const r = cellSize * 0.5;
+      const s = 0.75; // 75% size to cover stone edges
+
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      // Helper function to draw sharp starburst
+      const drawStar = (outerR: number, innerR: number, points: number) => {
+        ctx.beginPath();
+        for (let i = 0; i < points * 2; i++) {
+          const radius = i % 2 === 0 ? outerR : innerR;
+          const angle = (i * Math.PI / points) - Math.PI / 2;
+          if (i === 0) ctx.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+          else ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+        }
+        ctx.closePath();
+      };
+
+      // Helper for asymmetric starburst - varying point lengths
+      const drawAsymmetricStar = (baseR: number, innerR: number, points: number, variance: number[]) => {
+        ctx.beginPath();
+        for (let i = 0; i < points * 2; i++) {
+          const pointIndex = Math.floor(i / 2);
+          const v = variance[pointIndex % variance.length];
+          const radius = i % 2 === 0 ? baseR * v : innerR;
+          const angle = (i * Math.PI / points) - Math.PI / 2;
+          if (i === 0) ctx.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+          else ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+        }
+        ctx.closePath();
+      };
+
+      // Asymmetric variance pattern
+      const vOuter = [1.2, 0.8, 1.0, 0.75, 1.15, 0.85, 1.1, 0.7, 0.95];
+      const vInner = [1.1, 0.85, 1.0, 0.9, 1.05, 0.8, 1.0, 0.85, 0.95];
+
+      // Outer red layer
+      drawAsymmetricStar(r * 2.4 * s, r * 1.1 * s, 9, vOuter);
+      ctx.fillStyle = '#D52B1E';
+      ctx.fill();
+
+      // Middle orange layer
+      drawAsymmetricStar(r * 1.6 * s, r * 0.8 * s, 9, vInner);
+      ctx.fillStyle = '#FF8C00';
+      ctx.fill();
+
+      // Inner yellow center
+      drawStar(r * 0.8 * s, r * 0.4 * s, 6);
+      ctx.fillStyle = '#FFD700';
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // Draw FPV drone animation
+    if (droneAnimation && droneAnimation.path.length >= 2) {
+      const { path, progress, propRotation } = droneAnimation;
+      const droneSize = cellSize * 0.55; // Stone size + 10%
+
+      // Calculate current position along path
+      const totalSegments = path.length - 1;
+      const currentSegment = Math.min(Math.floor(progress * totalSegments), totalSegments - 1);
+      const segmentProgress = (progress * totalSegments) - currentSegment;
+
+      const from = path[currentSegment];
+      const to = path[Math.min(currentSegment + 1, path.length - 1)];
+
+      const droneX = padding + (from.x + (to.x - from.x) * segmentProgress) * cellSize;
+      const droneY = padding + (from.y + (to.y - from.y) * segmentProgress) * cellSize;
+
+      // Calculate drone rotation based on movement direction
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const droneAngle = Math.atan2(dy, dx);
+
+      ctx.save();
+      ctx.translate(droneX, droneY);
+      ctx.rotate(droneAngle + Math.PI / 2); // Point drone in direction of travel
+
+      // Draw FPV drone body (black)
+      ctx.fillStyle = '#000000';
+
+      // Main body (rounded rectangle)
+      const bodyW = droneSize * 0.4;
+      const bodyH = droneSize * 0.5;
+      ctx.beginPath();
+      ctx.roundRect(-bodyW / 2, -bodyH / 2, bodyW, bodyH, droneSize * 0.08);
+      ctx.fill();
+
+      // Draw 4 arms
+      const armLength = droneSize * 0.4;
+      const armWidth = droneSize * 0.08;
+      const armAngles = [-Math.PI / 4, Math.PI / 4, Math.PI * 3 / 4, -Math.PI * 3 / 4];
+
+      for (const angle of armAngles) {
+        ctx.save();
+        ctx.rotate(angle);
+        ctx.fillRect(-armWidth / 2, 0, armWidth, armLength);
+        ctx.restore();
+      }
+
+      // Draw 4 propellers (spinning)
+      const propRadius = droneSize * 0.2;
+      const motorRadius = droneSize * 0.06;
+
+      for (let i = 0; i < 4; i++) {
+        const angle = armAngles[i];
+        const motorX = Math.sin(angle) * armLength;
+        const motorY = Math.cos(angle) * armLength;
+
+        ctx.save();
+        ctx.translate(motorX, motorY);
+
+        // Motor hub
+        ctx.beginPath();
+        ctx.arc(0, 0, motorRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Spinning propeller blades
+        ctx.rotate(propRotation + i * Math.PI / 2); // Offset each prop
+        ctx.fillStyle = '#333333';
+        for (let b = 0; b < 2; b++) {
+          ctx.save();
+          ctx.rotate(b * Math.PI);
+          ctx.beginPath();
+          ctx.ellipse(propRadius * 0.5, 0, propRadius * 0.6, propRadius * 0.15, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      ctx.restore();
+    }
+
     // When holding a stone, show snapped ghost stone at target position
     if (heldStone && hoverPos && board[hoverPos.y][hoverPos.x] === null) {
       const cx = padding + hoverPos.x * cellSize;
@@ -392,7 +608,7 @@ export default function GoBoard({
     }
 
     // Highlight stone under cursor when not holding anything (for pickup)
-    if (!heldStone && hoverPos && board[hoverPos.y][hoverPos.x] !== null) {
+    if (!hideHoverRing && !heldStone && hoverPos && board[hoverPos.y][hoverPos.x] !== null) {
       const cx = padding + hoverPos.x * cellSize;
       const cy = padding + hoverPos.y * cellSize;
       ctx.strokeStyle = '#ff6b6b';
@@ -401,7 +617,7 @@ export default function GoBoard({
       ctx.arc(cx, cy, cellSize * 0.5, 0, Math.PI * 2);
       ctx.stroke();
     }
-  }, [board, size, canvasSize, heldStone, lastMove, hoverPos, cellSize, padding, drawStone, getStarPoints, boardColor, starPointColor, whiteStoneMarker]);
+  }, [board, size, canvasSize, heldStone, lastMove, hoverPos, cellSize, padding, drawStone, getStarPoints, boardColor, starPointColor, whiteStoneMarker, hideHoverRing, explosionPositions, droneAnimation]);
 
   // Handle resize
   useEffect(() => {

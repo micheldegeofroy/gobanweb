@@ -15,6 +15,9 @@ interface StonePotProps {
   hideRing?: boolean; // Hide the brown ring around the pot
   stonePreviewColor?: string; // Custom color for the stone preview (e.g., red for Dom Go)
   stoneGlowColor?: string; // Glow color around the stone preview
+  stoneFlag?: 'russia' | 'ukraine'; // Flag pattern for stone preview
+  isCurrentTurn?: boolean; // Flash rim when it's this player's turn
+  turnFlashColor?: string; // Color for turn flash (default: gold)
 }
 
 export default function StonePot({
@@ -32,6 +35,9 @@ export default function StonePot({
   hideRing = false,
   stonePreviewColor,
   stoneGlowColor,
+  stoneFlag,
+  isCurrentTurn = false,
+  turnFlashColor = '#FFD700',
 }: StonePotProps) {
   const isBlack = color === 0;
   const canPickUp = !isHoldingStone && potCount > 0;
@@ -88,43 +94,75 @@ export default function StonePot({
     return Object.keys(style).length > 0 ? style : undefined;
   };
 
+  // Style for turn flash animation
+  const turnFlashStyle: React.CSSProperties = isCurrentTurn ? {
+    animation: 'turnFlash 2s ease-in-out infinite',
+    boxShadow: `0 0 15px 5px ${turnFlashColor}`,
+  } : {};
+
   return (
-    <button
-      onClick={onClick}
-      className={`
-        relative rounded-full
-        flex flex-col items-center justify-center
-        transition-all duration-200
-        ${small ? 'w-16 h-16' : 'w-24 h-24'}
-        ${innerColor
-          ? ''
-          : isBlack
-            ? 'bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600'
-            : 'bg-zinc-100 hover:bg-white active:bg-zinc-50 border-2 border-zinc-300'
-        }
-        ${(innerColor || hideRing) ? '' : 'ring-4 ring-[#8f6c00]'}
-        ${canPickUp ? 'cursor-grab' : ''}
-        ${canDropHere ? 'cursor-pointer' : ''}
-        shadow-lg hover:shadow-xl
-        ${rotated ? 'rotate-180' : ''}
-      `}
-      style={customPotStyle}
-    >
+    <>
+      {/* CSS for turn flash animation */}
+      {isCurrentTurn && (
+        <style jsx global>{`
+          @keyframes turnFlash {
+            0%, 100% { box-shadow: 0 0 8px 2px ${turnFlashColor}; }
+            50% { box-shadow: 0 0 20px 8px ${turnFlashColor}; }
+          }
+        `}</style>
+      )}
+      <button
+        onClick={onClick}
+        className={`
+          relative rounded-full
+          flex flex-col items-center justify-center
+          transition-all duration-200
+          ${small ? 'w-16 h-16' : 'w-24 h-24'}
+          ${innerColor
+            ? ''
+            : isBlack
+              ? 'bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600'
+              : 'bg-zinc-100 hover:bg-white active:bg-zinc-50 border-2 border-zinc-300'
+          }
+          ${(innerColor || hideRing) ? '' : 'ring-4 ring-[#8f6c00]'}
+          ${canPickUp ? 'cursor-grab' : ''}
+          ${canDropHere ? 'cursor-pointer' : ''}
+          shadow-lg hover:shadow-xl
+          ${rotated ? 'rotate-180' : ''}
+        `}
+        style={{...customPotStyle, ...turnFlashStyle}}
+      >
       {/* Stone preview in pot */}
       <div
         className={`
-          rounded-full mb-1
+          rounded-full mb-1 overflow-hidden
           ${small ? 'w-8 h-8' : 'w-12 h-12'}
-          ${isBlack && stonePreviewColor
-            ? ''
-            : isBlack
-              ? 'bg-gradient-to-br from-zinc-600 to-zinc-900'
-              : 'bg-gradient-to-br from-white to-zinc-200 border border-zinc-300'
+          ${stoneFlag
+            ? 'border border-zinc-400'
+            : isBlack && stonePreviewColor
+              ? ''
+              : isBlack
+                ? 'bg-gradient-to-br from-zinc-600 to-zinc-900'
+                : 'bg-gradient-to-br from-white to-zinc-200 border border-zinc-300'
           }
           shadow-md
         `}
-        style={getStonePreviewStyle()}
-      />
+        style={stoneFlag ? undefined : getStonePreviewStyle()}
+      >
+        {stoneFlag === 'russia' && (
+          <div className="w-full h-full flex flex-col">
+            <div className="flex-1" style={{ backgroundColor: '#FFFFFF' }} />
+            <div className="flex-1" style={{ backgroundColor: '#0039A6' }} />
+            <div className="flex-1" style={{ backgroundColor: '#D52B1E' }} />
+          </div>
+        )}
+        {stoneFlag === 'ukraine' && (
+          <div className="w-full h-full flex flex-col">
+            <div className="flex-1" style={{ backgroundColor: '#005BBB' }} />
+            <div className="flex-1" style={{ backgroundColor: '#FFD500' }} />
+          </div>
+        )}
+      </div>
 
       {/* Stats: potCount / captured / onBoard */}
       <div
@@ -141,6 +179,7 @@ export default function StonePot({
         <div className={small ? 'text-xs' : 'text-sm'}>{potCount}</div>
         <div className="opacity-75">{captured}/{onBoard}</div>
       </div>
-    </button>
+      </button>
+    </>
   );
 }

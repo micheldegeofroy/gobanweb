@@ -226,3 +226,83 @@ export const legalPages = pgTable('legal_pages', {
 
 export type LegalPage = typeof legalPages.$inferSelect;
 export type NewLegalPage = typeof legalPages.$inferInsert;
+
+// Mine position type for Go Bang
+export interface MinePosition {
+  x: number;
+  y: number;
+}
+
+// Explosion info for undo/replay
+export interface ExplosionInfo {
+  triggerX: number;
+  triggerY: number;
+  triggerColor: number;
+  destroyedStones: CapturedStoneInfo[];
+}
+
+// Drone strike info for Go Bang
+export interface DroneStrikeInfo {
+  startX: number; // Where drone starts (edge of board)
+  startY: number;
+  targetX: number; // Target stone position
+  targetY: number;
+  targetColor: number; // Color of destroyed stone
+}
+
+// Go Bang games table - minefield variant
+export const bangGames = pgTable('bang_games', {
+  id: text('id').primaryKey(),
+  publicKey: text('public_key').notNull(),
+  boardSize: integer('board_size').notNull().default(19),
+  boardState: jsonb('board_state').notNull().$type<(number | null)[][]>(),
+  minePositions: jsonb('mine_positions').notNull().$type<MinePosition[]>(), // Hidden mines
+  blackPotCount: integer('black_pot_count').notNull(),
+  whitePotCount: integer('white_pot_count').notNull(),
+  blackCaptured: integer('black_captured').notNull().default(0),
+  whiteCaptured: integer('white_captured').notNull().default(0),
+  blackOnBoard: integer('black_on_board').notNull().default(0),
+  whiteOnBoard: integer('white_on_board').notNull().default(0),
+  blackExploded: integer('black_exploded').notNull().default(0), // Stones lost to explosions
+  whiteExploded: integer('white_exploded').notNull().default(0),
+  blackDroned: integer('black_droned').notNull().default(0), // Stones lost to drone strikes
+  whiteDroned: integer('white_droned').notNull().default(0),
+  lastMoveX: integer('last_move_x'),
+  lastMoveY: integer('last_move_y'),
+  lastExplosionX: integer('last_explosion_x'), // Show explosion location
+  lastExplosionY: integer('last_explosion_y'),
+  lastDroneTargetX: integer('last_drone_target_x'), // Drone strike target
+  lastDroneTargetY: integer('last_drone_target_y'),
+  koPointX: integer('ko_point_x'),
+  koPointY: integer('ko_point_y'),
+  currentTurn: integer('current_turn').notNull().default(0), // 0=black, 1=white
+  moveNumber: integer('move_number').notNull().default(0),
+  connectedUsers: integer('connected_users').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export type BangGame = typeof bangGames.$inferSelect;
+export type NewBangGame = typeof bangGames.$inferInsert;
+
+// Go Bang actions log - for replay
+export const bangActions = pgTable('bang_actions', {
+  id: text('id').primaryKey(),
+  gameId: text('game_id').notNull().references(() => bangGames.id, { onDelete: 'cascade' }),
+  actionType: text('action_type').notNull(), // 'place', 'remove', 'move', 'explosion'
+  stoneColor: integer('stone_color'),
+  fromX: integer('from_x'),
+  fromY: integer('from_y'),
+  toX: integer('to_x'),
+  toY: integer('to_y'),
+  moveNumber: integer('move_number').notNull(),
+  explosion: jsonb('explosion').$type<ExplosionInfo>(), // If this move triggered explosion
+  droneStrike: jsonb('drone_strike').$type<DroneStrikeInfo>(), // If drone strike occurred after move
+  capturedStones: jsonb('captured_stones').$type<CapturedStoneInfo[]>(),
+  koPointX: integer('ko_point_x'),
+  koPointY: integer('ko_point_y'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export type BangAction = typeof bangActions.$inferSelect;
+export type NewBangAction = typeof bangActions.$inferInsert;
