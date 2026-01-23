@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -8,6 +9,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function InstallPrompt() {
+  const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -73,7 +75,8 @@ export function InstallPrompt() {
     localStorage.setItem('installPromptDismissed', Date.now().toString());
   };
 
-  if (!showPrompt || isStandalone) return null;
+  // Only show on landing page
+  if (!showPrompt || isStandalone || pathname !== '/') return null;
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 animate-slide-up">

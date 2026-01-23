@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- 3D stone gradient - highlight top-left, shadow bottom-right -->
+    <radialGradient id="stoneGrad" cx="35%" cy="35%" r="60%" fx="30%" fy="30%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#f0f0f0"/>
+      <stop offset="100%" stop-color="#c0c0c0"/>
+    </radialGradient>
+    <!-- Subtle inner shadow -->
+    <radialGradient id="innerShadow" cx="50%" cy="50%" r="50%">
+      <stop offset="70%" stop-color="transparent"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0.15)"/>
+    </radialGradient>
+    <!-- Drop shadow filter -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="8" dy="12" stdDeviation="20" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <!-- Background circle (optional, for visibility on dark backgrounds) -->
+  <circle cx="256" cy="256" r="240" fill="url(#stoneGrad)" filter="url(#shadow)"/>
+  <!-- Inner edge shadow for depth -->
+  <circle cx="256" cy="256" r="240" fill="url(#innerShadow)"/>
+  <!-- Highlight reflection -->
+  <ellipse cx="200" cy="180" rx="60" ry="40" fill="rgba(255,255,255,0.6)"/>
+</svg>
