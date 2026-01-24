@@ -246,19 +246,6 @@ export default function ZenGoBoard({
       }
     }
 
-    // Last move indicator - contrasting circle (white on black, black on white)
-    if (lastMove && board[lastMove.y][lastMove.x] !== null) {
-      const cx = padding + lastMove.x * cellSize;
-      const cy = padding + lastMove.y * cellSize;
-      const stoneColor = board[lastMove.y][lastMove.x];
-      const isBlackStone = Number(stoneColor) === 0;
-      ctx.strokeStyle = isBlackStone ? '#ffffff' : '#000000';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(cx, cy, cellSize * 0.35, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
     // Ghost stone preview
     if (heldStone && hoverPos && board[hoverPos.y][hoverPos.x] === null) {
       const cx = padding + hoverPos.x * cellSize;

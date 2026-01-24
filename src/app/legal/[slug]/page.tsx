@@ -52,44 +52,44 @@ export default async function LegalPage({ params }: LegalPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-zinc-900 dark:to-zinc-800">
+    <div className="min-h-screen bg-black">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
           <Link
             href="/"
-            className="text-amber-600 dark:text-amber-400 hover:underline mb-4 inline-block"
+            className="text-zinc-400 hover:text-white hover:underline mb-4 inline-block transition-colors"
           >
             ← Back to Goban Web
           </Link>
-          <h1 className="text-3xl font-bold text-zinc-800 dark:text-zinc-100">
+          <h1 className="text-3xl font-bold text-white">
             {page.title}
           </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
+          <p className="text-sm text-zinc-500 mt-2">
             Last updated: {new Date(page.updatedAt).toLocaleDateString()}
           </p>
         </div>
 
         {/* Content */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-lg p-8">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8">
           <div
-            className="prose prose-zinc dark:prose-invert max-w-none font-[family-name:var(--font-geist-sans)]"
+            className="prose prose-invert max-w-none font-[family-name:var(--font-geist-sans)] prose-headings:text-white prose-p:text-zinc-300 prose-li:text-zinc-300 prose-strong:text-white prose-a:text-white prose-a:underline"
             style={{ lineHeight: '1.6' }}
             dangerouslySetInnerHTML={{ __html: page.content }}
           />
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-          <Link href="/" className="hover:underline">
+        <div className="mt-8 text-center text-sm text-zinc-500">
+          <Link href="/" className="hover:text-white hover:underline transition-colors">
             Goban Web
           </Link>
           {' · '}
-          <Link href="/legal/terms" className="hover:underline">
+          <Link href="/legal/terms" className="hover:text-white hover:underline transition-colors">
             Terms
           </Link>
           {' · '}
-          <Link href="/legal/privacy" className="hover:underline">
+          <Link href="/legal/privacy" className="hover:text-white hover:underline transition-colors">
             Privacy
           </Link>
         </div>

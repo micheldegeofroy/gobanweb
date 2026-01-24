@@ -265,9 +265,9 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
     if (!game || !privateKey || !gameId) return;
 
     let interval: NodeJS.Timeout;
-    const ACTIVE_POLL_MS = 2000;   // 2s when tab is visible
+    const ACTIVE_POLL_MS = 3000;   // 3s when tab is visible
     const HIDDEN_POLL_MS = 10000;  // 10s when tab is hidden
-    const ACTION_COOLDOWN_MS = 1500; // Skip polling for 1.5s after action
+    const ACTION_COOLDOWN_MS = 3000; // Skip polling for 3s after action
 
     const pollIfReady = () => {
       // Skip polling if we recently performed an action (server response is authoritative)
@@ -481,8 +481,72 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
       }
     } else {
       if (stoneAtPos !== null) {
+        // Pick up existing stone from board
         setHeldStone({ color: stoneAtPos, fromBoard: pos });
         haptic.stonePickedUp();
+      } else {
+        // Direct placement - place stone of current turn's color without picking up first
+        const turnColor = game.currentTurn as 0 | 1 | 2 | 3;
+        const potCounts = {
+          0: game.blackPotCount,
+          1: game.whitePotCount,
+          2: game.brownPotCount,
+          3: game.greyPotCount,
+        };
+
+        if (potCounts[turnColor] <= 0) return;
+
+        if (wouldBeSuicide(game.boardState, pos.x, pos.y, turnColor)) {
+          haptic.invalidMove();
+          return;
+        }
+        if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
+          haptic.invalidMove();
+          return;
+        }
+
+        // Block polling immediately
+        lastActionTime.current = Date.now();
+
+        // Optimistic update
+        const newBoard = game.boardState.map(row => [...row]) as CrazyBoard;
+        newBoard[pos.y][pos.x] = turnColor;
+
+        const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured, brownCaptured, greyCaptured } =
+          detectAndRemoveCaptures(newBoard, pos.x, pos.y, turnColor);
+
+        const newPotCount = {
+          blackPotCount: game.blackPotCount - (turnColor === 0 ? 1 : 0),
+          whitePotCount: game.whitePotCount - (turnColor === 1 ? 1 : 0),
+          brownPotCount: game.brownPotCount - (turnColor === 2 ? 1 : 0),
+          greyPotCount: game.greyPotCount - (turnColor === 3 ? 1 : 0),
+        };
+
+        const totalCaptured = blackCaptured + whiteCaptured + brownCaptured + greyCaptured;
+        if (totalCaptured > 0) {
+          haptic.capture();
+        } else {
+          haptic.stonePlaced();
+        }
+
+        setGame(prev => prev ? {
+          ...prev,
+          boardState: boardAfterCaptures,
+          lastMoveX: pos.x,
+          lastMoveY: pos.y,
+          ...newPotCount,
+          blackCaptured: prev.blackCaptured + (turnColor === 0 ? totalCaptured : 0),
+          whiteCaptured: prev.whiteCaptured + (turnColor === 1 ? totalCaptured : 0),
+          brownCaptured: prev.brownCaptured + (turnColor === 2 ? totalCaptured : 0),
+          greyCaptured: prev.greyCaptured + (turnColor === 3 ? totalCaptured : 0),
+          currentTurn: (prev.currentTurn + 1) % 4,
+        } : null);
+
+        performAction('place', {
+          stoneColor: turnColor,
+          toX: pos.x,
+          toY: pos.y,
+        });
       }
     }
   };
@@ -861,12 +925,6 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
         className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
       >
         UNDO
-      </button>
-      <button
-        onClick={clearBoard}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
-        CLEAR
       </button>
       <button
         onClick={handleShare}

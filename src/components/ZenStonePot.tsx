@@ -78,39 +78,11 @@ export default function ZenStonePot({
         </span>
       </button>
 
-      {/* Current player indicator */}
-      <div className={`
-        px-3 py-1 rounded-full
-        ${small ? 'text-xs' : 'text-sm'}
-        font-bold
-        bg-zinc-700 text-zinc-100
-        border-2 border-zinc-500
-      `}>
-        {playerLabel}&apos;s turn
+      {/* Current player and captures */}
+      <div className={`${small ? 'text-xs' : 'text-sm'} font-medium text-zinc-400 text-center`}>
+        <div>{currentPlayerIndex === 0 ? 'Player One' : currentPlayerIndex === 1 ? 'Player Two' : 'Player Three'}</div>
+        {!small && <div>P1: {playerCaptures[0]}  P2: {playerCaptures[1]}  P3: {playerCaptures[2]}</div>}
       </div>
-
-      {/* Next stone color label */}
-      <div className={`
-        ${small ? 'text-xs' : 'text-sm'}
-        font-medium text-zinc-400
-      `}>
-        {isBlack ? 'Black' : 'White'}
-      </div>
-
-      {/* Player captures */}
-      {!small && (
-        <div className="flex gap-3 mt-2 text-xs text-zinc-400">
-          <span className="flex items-center gap-1">
-            <span className="font-bold text-zinc-100">P1:</span> {playerCaptures[0]}
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="font-bold text-zinc-100">P2:</span> {playerCaptures[1]}
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="font-bold text-zinc-100">P3:</span> {playerCaptures[2]}
-          </span>
-        </div>
-      )}
     </div>
   );
 }

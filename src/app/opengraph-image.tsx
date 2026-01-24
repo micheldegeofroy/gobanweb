@@ -98,7 +98,7 @@ export default async function Image() {
               color: '#52525b',
             }}
           >
-            Free Online Go Board - No Login Required
+            Play Go (Baduk/Weiqi) Free · iPad · iPhone · Android · Desktop
           </div>
         </div>
       </div>

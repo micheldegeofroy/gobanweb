@@ -94,8 +94,9 @@ export default function WildeStonePot({
         ${potSize} rounded-full
         flex flex-col items-center justify-center
         transition-all duration-200 shadow-lg
-        ${isCurrentTurn ? 'ring-4 ring-white animate-pulse' : ''}
-        ${isDropTarget ? 'scale-110 ring-4 ring-white' : ''}
+        ring-2 ring-white
+        ${isCurrentTurn ? 'ring-4 animate-pulse' : ''}
+        ${isDropTarget ? 'scale-110 ring-4' : ''}
         ${!isHoldingStone && potCount > 0 ? 'hover:scale-105 hover:brightness-110' : ''}
         ${potCount === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}

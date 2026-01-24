@@ -222,7 +222,7 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
       // Protect optimistic updates from being overwritten by stale poll data
       // Skip this check if forceApply is true (used after action confirmation)
       if (!forceApply) {
-        const OPTIMISTIC_PROTECTION_MS = 2500; // Protect for 2.5s after optimistic update
+        const OPTIMISTIC_PROTECTION_MS = 4000; // Protect for 4s after optimistic update
         const timeSinceOptimistic = Date.now() - lastOptimisticUpdate.current;
 
         // If we're within the protection window, only apply if this fetch started after
@@ -271,9 +271,9 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
     if (!game || !privateKey || !gameId) return;
 
     let interval: NodeJS.Timeout;
-    const ACTIVE_POLL_MS = 2000;
+    const ACTIVE_POLL_MS = 3000;
     const HIDDEN_POLL_MS = 10000;
-    const ACTION_COOLDOWN_MS = 1500;
+    const ACTION_COOLDOWN_MS = 3000;
 
     const pollIfReady = () => {
       if (Date.now() - lastActionTime.current < ACTION_COOLDOWN_MS) return;
@@ -462,6 +462,58 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
       if (stoneAtPos !== null) {
         setHeldStone({ color: stoneAtPos, fromBoard: pos });
         haptic.stonePickedUp();
+      } else {
+        // Direct placement - place stone of next color without picking up first
+        if (game.sharedPotCount <= 0) return;
+
+        const nextColor = game.nextStoneColor as 0 | 1;
+
+        if (wouldBeSuicide(game.boardState, pos.x, pos.y, nextColor)) {
+          haptic.invalidMove();
+          return;
+        }
+        if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
+          haptic.invalidMove();
+          return;
+        }
+
+        lastActionTime.current = Date.now();
+
+        // Optimistic update - place stone and detect captures
+        const newBoard = game.boardState.map(row => [...row]) as ZenBoard;
+        newBoard[pos.y][pos.x] = nextColor;
+
+        const { newBoard: boardAfterCaptures, totalCaptured } =
+          detectAndRemoveCaptures(newBoard, pos.x, pos.y, nextColor);
+
+        if (totalCaptured > 0) {
+          haptic.capture();
+        } else {
+          haptic.stonePlaced();
+        }
+
+        // Figure out which player is placing (before turn advancement)
+        const currentPlayer = game.currentTurn;
+
+        // Mark optimistic update time to prevent stale poll responses
+        lastOptimisticUpdate.current = Date.now();
+        setGame(prev => prev ? {
+          ...prev,
+          boardState: boardAfterCaptures,
+          lastMoveX: pos.x,
+          lastMoveY: pos.y,
+          sharedPotCount: prev.sharedPotCount - 1,
+          nextStoneColor: 1 - prev.nextStoneColor,
+          currentTurn: (prev.currentTurn + 1) % 3,
+          player1Captured: prev.player1Captured + (currentPlayer === 0 ? totalCaptured : 0),
+          player2Captured: prev.player2Captured + (currentPlayer === 1 ? totalCaptured : 0),
+          player3Captured: prev.player3Captured + (currentPlayer === 2 ? totalCaptured : 0),
+        } : null);
+
+        performAction('place', {
+          toX: pos.x,
+          toY: pos.y,
+        });
       }
     }
   };
@@ -805,12 +857,6 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
         className="text-zinc-300 font-bold text-sm uppercase hover:text-white transition-colors"
       >
         UNDO
-      </button>
-      <button
-        onClick={clearBoard}
-        className="text-zinc-300 font-bold text-sm uppercase hover:text-white transition-colors"
-      >
-        CLEAR
       </button>
       <button
         onClick={handleShare}

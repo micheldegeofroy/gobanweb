@@ -300,7 +300,7 @@ export default function BangGoHome() {
               >
                 <li className="flex items-start gap-2">
                   <span style={{ color: camoTan }}>•</span>
-                  <span><strong style={{ color: camoTan }}>Hidden Mines</strong> - 10% of board intersections contain invisible mines</span>
+                  <span><strong style={{ color: camoTan }}>Mines</strong> - 10% of board intersections contain invisible mines</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span style={{ color: camoTan }}>•</span>
@@ -362,7 +362,7 @@ export default function BangGoHome() {
               className="text-sm font-medium hover:underline"
               style={{ color: '#99998080' }}
             >
-              ← Back to Classic Go
+              ← Back to Menu
             </button>
           </div>
 

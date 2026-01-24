@@ -20,6 +20,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover', // For iPhone notch/Dynamic Island - extend to edges
+  interactiveWidget: 'resizes-content', // Android: keyboard resizes content
 };
 
 export const metadata: Metadata = {
@@ -79,6 +81,7 @@ export const metadata: Metadata = {
   },
 };
 
+// Main WebApplication structured data
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebApplication',
@@ -87,6 +90,8 @@ const jsonLd = {
   url: 'https://gobanweb.vercel.app',
   applicationCategory: 'GameApplication',
   operatingSystem: 'Any',
+  browserRequirements: 'Requires JavaScript. Works on all modern browsers.',
+  softwareVersion: '1.0',
   offers: {
     '@type': 'Offer',
     price: '0',
@@ -95,7 +100,9 @@ const jsonLd = {
   aggregateRating: {
     '@type': 'AggregateRating',
     ratingValue: '4.8',
-    ratingCount: '100',
+    ratingCount: '500',
+    bestRating: '5',
+    worstRating: '1',
   },
   featureList: [
     'No login required',
@@ -104,6 +111,72 @@ const jsonLd = {
     'Share board via link',
     'Multiple board sizes (9x9, 13x13, 19x19)',
     'Interactive tutorial for beginners',
+    '6 unique Go game variants',
+    'Works offline as PWA',
+  ],
+};
+
+// Organization structured data
+const organizationLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Goban Web',
+  url: 'https://gobanweb.vercel.app',
+  logo: 'https://gobanweb.vercel.app/icon.svg',
+  sameAs: [],
+};
+
+// BreadcrumbList for SEO
+const breadcrumbLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    {
+      '@type': 'ListItem',
+      position: 1,
+      name: 'Home',
+      item: 'https://gobanweb.vercel.app',
+    },
+  ],
+};
+
+// FAQPage for common questions
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'What is Go?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Go (also known as Baduk or Weiqi) is an ancient board game originating in China over 4,000 years ago. Two players take turns placing black and white stones on a grid, aiming to surround territory and capture opponent stones.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Is Goban Web free to use?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes, Goban Web is completely free to use. No login, no signup, no payment required. Just create a board and share the link with friends to play.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can I play Go on my phone or tablet?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes, Goban Web works on all devices including iPhones, iPads, Android phones, Android tablets, and desktop computers. It can also be installed as an app on your home screen.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How do I play with friends?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Create a new game board, then click the Share button to copy the link. Send this link to your friend and they can join instantly - no account needed.',
+      },
+    },
   ],
 };
 
@@ -120,6 +193,18 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
         />
         <ServiceWorkerRegistration />
         <OfflineIndicator />

@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { WILDE_COLORS } from '@/lib/wilde/colors';
-import { Pacman, PacmanType, Direction } from '@/lib/wilde/pacman';
+import { Pakita, Direction } from '@/lib/wilde/pakita';
 
 type WildeStone = number | null; // 0-7 for players, null for empty
 type WildeBoard = WildeStone[][];
@@ -33,26 +33,29 @@ interface WildeGoBoardProps {
   customHues?: Record<number, number> | null;
 }
 
-// Get max board size based on screen dimensions
-const getMaxBoardSize = () => {
-  if (typeof window === 'undefined') return 600;
+// Get max board dimensions based on screen size
+const getMaxBoardDimensions = () => {
+  if (typeof window === 'undefined') return { maxWidth: 600, maxHeight: 600 };
 
   const screenWidth = window.innerWidth;
   const screenHeight = window.innerHeight;
-  const isLandscape = screenWidth > screenHeight;
 
   if (screenWidth >= 1024) {
-    return 600;
+    // Large screens - leave room for pots on sides
+    return {
+      maxWidth: screenWidth - 400,
+      maxHeight: screenHeight - 100,
+    };
   } else if (screenWidth >= 768) {
-    if (isLandscape) {
-      return Math.min(screenHeight - 200, screenWidth - 300, 700);
-    }
-    return Math.min(screenWidth - 40, screenHeight - 280, 700);
+    return {
+      maxWidth: screenWidth - 40,
+      maxHeight: screenHeight - 200,
+    };
   } else {
-    if (isLandscape) {
-      return Math.min(screenHeight - 100, screenWidth - 200, 400);
-    }
-    return Math.min(screenWidth - 24, screenHeight - 260, 500);
+    return {
+      maxWidth: screenWidth - 24,
+      maxHeight: screenHeight - 200,
+    };
   }
 };
 
@@ -115,28 +118,31 @@ export default function WildeGoBoard({
 }: WildeGoBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [maxSize, setMaxSize] = useState(600);
+  const [maxDims, setMaxDims] = useState({ maxWidth: 600, maxHeight: 600 });
   const [hoverPos, setHoverPos] = useState<Position | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
-  // Calculate canvas dimensions for rectangular board
-  const aspectRatio = width / height;
-  let canvasWidth: number;
-  let canvasHeight: number;
-  if (aspectRatio >= 1) {
-    canvasWidth = maxSize;
-    canvasHeight = maxSize / aspectRatio;
-  } else {
-    canvasWidth = maxSize * aspectRatio;
-    canvasHeight = maxSize;
-  }
+  // Calculate canvas dimensions for rectangular board with square cells
+  // Board fills the available space while maintaining square cells
+  const paddingRatio = 0.09;
 
-  const padding = Math.min(canvasWidth, canvasHeight) * 0.13;
-  const boardPixelWidth = canvasWidth - padding * 2;
-  const boardPixelHeight = canvasHeight - padding * 2;
-  const cellSizeX = boardPixelWidth / (width - 1);
-  const cellSizeY = boardPixelHeight / (height - 1);
-  const cellSize = Math.min(cellSizeX, cellSizeY);
+  // Calculate cell size that fits within both width and height constraints
+  const availableWidth = maxDims.maxWidth * (1 - paddingRatio * 2);
+  const availableHeight = maxDims.maxHeight * (1 - paddingRatio * 2);
+
+  const cellSizeByWidth = availableWidth / (width - 1);
+  const cellSizeByHeight = availableHeight / (height - 1);
+  const cellSize = Math.min(cellSizeByWidth, cellSizeByHeight);
+
+  // Canvas dimensions based on grid size with square cells
+  const boardPixelWidth = cellSize * (width - 1);
+  const boardPixelHeight = cellSize * (height - 1);
+  const padding = Math.max(boardPixelWidth, boardPixelHeight) * paddingRatio;
+  const canvasWidth = boardPixelWidth + padding * 2;
+  const canvasHeight = boardPixelHeight + padding * 2;
+
+  const cellSizeX = cellSize;
+  const cellSizeY = cellSize;
 
   // Convert canvas coordinates to board position
   const canvasToBoard = useCallback(
@@ -305,50 +311,6 @@ export default function WildeGoBoard({
       ctx.fill();
     }
 
-    // Draw coordinate numbers at top edge (width, width-1, ... 1) - rotated for opponent
-    ctx.fillStyle = '#FF69B4';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    for (let i = 0; i < width; i++) {
-      const x = padding + i * cellSizeX;
-      const y = padding - cellSize * 0.4;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(Math.PI);
-      ctx.fillText(String(width - i), 0, 0);
-      ctx.restore();
-    }
-
-    // Draw coordinate numbers at bottom edge (width, width-1, ... 1)
-    ctx.textBaseline = 'top';
-    for (let i = 0; i < width; i++) {
-      const x = padding + i * cellSizeX;
-      const y = padding + (height - 1) * cellSizeY + cellSize * 0.4;
-      ctx.fillText(String(width - i), x, y);
-    }
-
-    // Draw coordinate letters on left edge (A, B, C...)
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    for (let i = 0; i < height; i++) {
-      const x = padding - cellSize * 0.4;
-      const y = padding + i * cellSizeY;
-      ctx.fillText(String.fromCharCode(65 + i), x, y);
-    }
-
-    // Draw coordinate letters on right edge (A, B, C...) - rotated for opponent
-    ctx.textAlign = 'right';
-    for (let i = 0; i < height; i++) {
-      const x = padding + (width - 1) * cellSizeX + cellSize * 0.4;
-      const y = padding + i * cellSizeY;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(Math.PI);
-      ctx.fillText(String.fromCharCode(65 + i), 0, 0);
-      ctx.restore();
-    }
-
     // Draw stones
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
@@ -399,12 +361,15 @@ export default function WildeGoBoard({
   // Handle resize
   useEffect(() => {
     const handleResize = () => {
-      const newMaxSize = getMaxBoardSize();
+      const dims = getMaxBoardDimensions();
       if (containerRef.current) {
         const containerWidth = containerRef.current.clientWidth;
-        setMaxSize(Math.min(containerWidth, newMaxSize));
+        setMaxDims({
+          maxWidth: Math.min(containerWidth, dims.maxWidth),
+          maxHeight: dims.maxHeight,
+        });
       } else {
-        setMaxSize(newMaxSize);
+        setMaxDims(dims);
       }
     };
 

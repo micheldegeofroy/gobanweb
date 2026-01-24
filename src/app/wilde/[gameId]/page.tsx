@@ -288,9 +288,9 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
     if (!privateKey || !gameId) return;
 
     let interval: NodeJS.Timeout;
-    const ACTIVE_POLL_MS = 2000;   // 2s when tab is visible
+    const ACTIVE_POLL_MS = 3000;   // 3s when tab is visible
     const HIDDEN_POLL_MS = 10000;  // 10s when tab is hidden
-    const ACTION_COOLDOWN_MS = 1500; // Skip polling for 1.5s after action
+    const ACTION_COOLDOWN_MS = 5000; // Skip polling for 5s after action
 
     const pollIfReady = () => {
       // Skip polling if we recently performed an action (server response is authoritative)
@@ -342,16 +342,20 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
         const data = await res.json();
         setError(data.error || 'Action failed');
         setTimeout(() => setError(null), 3000);
+        // Refresh game state to revert optimistic update
+        fetchGame(gameId);
         return false;
       }
 
-      // Don't update state from server response - optimistic update already has correct data
-      // This prevents flicker from double state update. Next poll will sync if needed.
+      // Update lastActionTime after successful response to extend cooldown
+      lastActionTime.current = Date.now();
       return true;
     } catch (err) {
       console.error('Error performing action:', err);
       setError('Action failed');
       setTimeout(() => setError(null), 3000);
+      // Refresh game state to revert optimistic update
+      fetchGame(gameId);
       return false;
     }
   }, [privateKey, gameId]);
@@ -499,8 +503,62 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
       }
     } else {
       if (stoneAtPos !== null) {
+        // Pick up existing stone from board
         setHeldStone({ color: stoneAtPos, fromBoard: pos });
         haptic.stonePickedUp();
+      } else {
+        // Direct placement - place stone of current turn's color without picking up first
+        const turnColor = game.currentTurn;
+        const pot = game.stonePots[turnColor];
+
+        if (!pot || pot.potCount <= 0) return;
+
+        if (wouldBeSuicide(game.boardState, pos.x, pos.y, turnColor, game.boardWidth, game.boardHeight)) {
+          haptic.invalidMove();
+          return;
+        }
+        if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
+          haptic.invalidMove();
+          return;
+        }
+
+        // Block polling immediately
+        lastActionTime.current = Date.now();
+
+        // Optimistic update
+        const newBoard = game.boardState.map(row => [...row]) as WildeBoard;
+        newBoard[pos.y][pos.x] = turnColor;
+
+        const { newBoard: boardAfterCaptures, capturedByColor } =
+          detectAndRemoveCaptures(newBoard, pos.x, pos.y, turnColor, game.boardWidth, game.boardHeight, game.playerCount);
+
+        const totalCaptured = capturedByColor.reduce((sum, c) => sum + c, 0);
+        if (totalCaptured > 0) {
+          haptic.capture();
+        } else {
+          haptic.stonePlaced();
+        }
+
+        const newPots = game.stonePots.map((p, i) => ({
+          potCount: p.potCount - (i === turnColor ? 1 : 0),
+          captured: p.captured + (i === turnColor ? totalCaptured : 0),
+          onBoard: p.onBoard + (i === turnColor ? 1 : 0) - capturedByColor[i],
+        }));
+
+        setGame(prev => prev ? {
+          ...prev,
+          boardState: boardAfterCaptures,
+          lastMoveX: pos.x,
+          lastMoveY: pos.y,
+          stonePots: newPots,
+          currentTurn: (prev.currentTurn + 1) % prev.playerCount,
+        } : null);
+
+        performAction('place', {
+          stoneColor: turnColor,
+          toX: pos.x,
+          toY: pos.y,
+        });
       }
     }
   };
@@ -1055,9 +1113,6 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
       </button>
       <button onClick={startReplay} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
         REPLAY
-      </button>
-      <button onClick={clearBoard} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
-        CLEAR
       </button>
       <button onClick={handleShare} className="text-purple-700 font-bold text-sm uppercase hover:opacity-70 transition-opacity">
         {copied ? 'COPIED!' : 'SHARE'}

@@ -306,3 +306,13 @@ export const bangActions = pgTable('bang_actions', {
 
 export type BangAction = typeof bangActions.$inferSelect;
 export type NewBangAction = typeof bangActions.$inferInsert;
+
+// Site settings table - global site configuration
+export const siteSettings = pgTable('site_settings', {
+  key: text('key').primaryKey(), // Setting key like "alerts_enabled"
+  value: text('value').notNull(), // Setting value (stored as string, parsed on read)
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export type SiteSetting = typeof siteSettings.$inferSelect;
+export type NewSiteSetting = typeof siteSettings.$inferInsert;

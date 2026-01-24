@@ -321,23 +321,22 @@ export default function WildeGoHome() {
               )}
             </div>
 
-            {/* Pacman Mode Toggle */}
+            {/* Pakita Mode Toggle */}
             <div className="mb-6">
               <button
                 onClick={() => setPacmanMode(!pacmanMode)}
-                className={`w-full py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-3 ${
+                className={`w-full py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
                   pacmanMode
                     ? 'bg-yellow-400 text-yellow-900 shadow-lg ring-2 ring-yellow-500'
-                    : 'bg-white/50 dark:bg-zinc-700/50 text-purple-600 dark:text-purple-300 hover:bg-white/80 dark:hover:bg-zinc-700/80'
+                    : 'bg-yellow-200 text-yellow-800 hover:bg-yellow-300'
                 }`}
               >
-                <span className="text-2xl">{pacmanMode ? '🟡' : '⚪'}</span>
-                <span>Pacman Mode</span>
-                <span className="text-2xl">{pacmanMode ? '👻' : ''}</span>
+                <img src="/pakita.png" alt="Pakita" className="w-8 h-8" />
+                <span>Pakita-Mendez</span>
               </button>
               {pacmanMode && (
-                <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 text-center">
-                  Pacman & Ms. Pacman will randomly appear and eat stones!
+                <p className="text-xs text-pink-600 dark:text-pink-400 mt-2 text-center">
+                  Pakita will randomly appear and eat stones!
                 </p>
               )}
             </div>
@@ -434,6 +433,16 @@ export default function WildeGoHome() {
             </ul>
           </div>
         </section>
+
+        {/* Back to Menu */}
+        <div className="max-w-md mx-auto mt-8 text-center">
+          <button
+            onClick={() => router.push('/')}
+            className="text-sm font-medium hover:underline text-purple-400 hover:text-purple-200"
+          >
+            ← Back to Menu
+          </button>
+        </div>
 
       </div>
     </div>

@@ -133,36 +133,72 @@ export default function StonePot({
         style={{...customPotStyle, ...turnFlashStyle}}
       >
       {/* Stone preview in pot */}
-      <div
-        className={`
-          rounded-full mb-1 overflow-hidden
-          ${small ? 'w-8 h-8' : 'w-12 h-12'}
-          ${stoneFlag
-            ? 'border border-zinc-400'
-            : isBlack && stonePreviewColor
+      {stoneFlag ? (
+        // 3D Flag stone preview using SVG for realistic look matching the board
+        <svg
+          className={`mb-1 ${small ? 'w-8 h-8' : 'w-12 h-12'}`}
+          viewBox="0 0 100 100"
+        >
+          <defs>
+            {/* Shadow gradient */}
+            <radialGradient id={`shadow-${color}-${stoneFlag}`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="rgba(0,0,0,0)" />
+              <stop offset="70%" stopColor="rgba(0,0,0,0)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.3)" />
+            </radialGradient>
+            {/* Highlight gradient - from top-left */}
+            <radialGradient id={`highlight-${color}-${stoneFlag}`} cx="30%" cy="30%" r="70%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.5)" />
+              <stop offset="30%" stopColor="rgba(255,255,255,0.2)" />
+              <stop offset="60%" stopColor="rgba(255,255,255,0)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+            </radialGradient>
+            {/* Clip path for circular stone */}
+            <clipPath id={`clip-${color}-${stoneFlag}`}>
+              <circle cx="50" cy="50" r="45" />
+            </clipPath>
+          </defs>
+          {/* Drop shadow */}
+          <circle cx="52" cy="52" r="45" fill="rgba(0,0,0,0.3)" />
+          {/* Base stone with flag stripes */}
+          <g clipPath={`url(#clip-${color}-${stoneFlag})`}>
+            {stoneFlag === 'russia' ? (
+              <>
+                <rect x="5" y="5" width="90" height="30" fill="#FFFFFF" />
+                <rect x="5" y="35" width="90" height="30" fill="#0039A6" />
+                <rect x="5" y="65" width="90" height="30" fill="#D52B1E" />
+              </>
+            ) : (
+              <>
+                <rect x="5" y="5" width="90" height="45" fill="#005BBB" />
+                <rect x="5" y="50" width="90" height="45" fill="#FFD500" />
+              </>
+            )}
+            {/* 3D highlight overlay */}
+            <circle cx="50" cy="50" r="45" fill={`url(#highlight-${color}-${stoneFlag})`} />
+            {/* Edge shadow for depth */}
+            <circle cx="50" cy="50" r="45" fill={`url(#shadow-${color}-${stoneFlag})`} />
+          </g>
+          {/* Outline */}
+          <circle cx="50" cy="50" r="45" fill="none" stroke="#333" strokeWidth="1" />
+        </svg>
+      ) : (
+        // Regular stone preview
+        <div
+          className={`
+            rounded-full mb-1 overflow-hidden
+            ${small ? 'w-8 h-8' : 'w-12 h-12'}
+            ${isBlack && stonePreviewColor
               ? ''
               : isBlack
                 ? 'bg-gradient-to-br from-zinc-600 to-zinc-900'
                 : 'bg-gradient-to-br from-white to-zinc-200 border border-zinc-300'
-          }
-          shadow-md
-        `}
-        style={stoneFlag ? undefined : getStonePreviewStyle()}
-      >
-        {stoneFlag === 'russia' && (
-          <div className="w-full h-full flex flex-col">
-            <div className="flex-1" style={{ backgroundColor: '#FFFFFF' }} />
-            <div className="flex-1" style={{ backgroundColor: '#0039A6' }} />
-            <div className="flex-1" style={{ backgroundColor: '#D52B1E' }} />
-          </div>
-        )}
-        {stoneFlag === 'ukraine' && (
-          <div className="w-full h-full flex flex-col">
-            <div className="flex-1" style={{ backgroundColor: '#005BBB' }} />
-            <div className="flex-1" style={{ backgroundColor: '#FFD500' }} />
-          </div>
-        )}
-      </div>
+            }
+            shadow-md
+          `}
+          style={getStonePreviewStyle()}
+        />
+      )}
 
       {/* Stats: potCount / captured / onBoard */}
       <div

@@ -329,9 +329,14 @@ export async function POST(
     let newLastDroneTargetX: number | null = null;
     let newLastDroneTargetY: number | null = null;
 
+    // Check if both players have stones on the board - drones can only strike when both armies are visible
+    const blackStonesOnBoard = newBoardState.flat().filter(s => s === 0).length;
+    const whiteStonesOnBoard = newBoardState.flat().filter(s => s === 1).length;
+    const bothPlayersHaveStones = blackStonesOnBoard > 0 && whiteStonesOnBoard > 0;
+
     // Drone targets the current player's stones (enemy drone attacks you when you play)
     const currentPlayerColor = stoneColor ?? (actionType === 'move' ? (boardState[fromY!][fromX!] as number) : 0);
-    if ((actionType === 'place' || actionType === 'move') && !explosion && Math.random() < DRONE_STRIKE_CHANCE) {
+    if ((actionType === 'place' || actionType === 'move') && !explosion && bothPlayersHaveStones && Math.random() < DRONE_STRIKE_CHANCE) {
       const target = getRandomStonePosition(newBoardState, boardSize, currentPlayerColor);
       if (target) {
         const start = getDroneStartPosition(target.x, target.y, boardSize);

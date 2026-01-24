@@ -64,7 +64,7 @@ export default function CrazyStonePot({
         transition-all duration-200
         ${small ? 'w-14 h-14' : 'w-20 h-20'}
         ${styles.bg}
-        ${isCurrentTurn ? 'ring-4 ring-white' : 'ring-4 ring-[#8f6c00]'}
+        ${isCurrentTurn ? 'ring-4 ring-white animate-pulse' : 'ring-4 ring-[#8f6c00]'}
         ${canPickUp ? 'cursor-grab hover:ring-zinc-200 active:ring-zinc-300' : ''}
         ${canDropHere ? 'cursor-pointer ring-[#8f6c00] active:ring-[#8f6c00]' : ''}
         ${!canPickUp && !canDropHere ? 'cursor-default' : ''}

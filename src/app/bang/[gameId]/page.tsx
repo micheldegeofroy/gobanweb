@@ -159,7 +159,7 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
       const data = await res.json();
 
       if (!forceApply) {
-        const OPTIMISTIC_PROTECTION_MS = 2500;
+        const OPTIMISTIC_PROTECTION_MS = 4000;
         const timeSinceOptimistic = Date.now() - lastOptimisticUpdate.current;
 
         if (timeSinceOptimistic < OPTIMISTIC_PROTECTION_MS) {
@@ -207,9 +207,9 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
     if (!game || !privateKey || !gameId) return;
 
     let interval: NodeJS.Timeout;
-    const ACTIVE_POLL_MS = 2000;
+    const ACTIVE_POLL_MS = 3000;
     const HIDDEN_POLL_MS = 10000;
-    const ACTION_COOLDOWN_MS = 1500;
+    const ACTION_COOLDOWN_MS = 3000;
 
     const pollIfReady = () => {
       if (Date.now() - lastActionTime.current < ACTION_COOLDOWN_MS) return;
@@ -533,11 +533,30 @@ export default function BangGamePage({ params }: { params: Promise<{ gameId: str
       }
     } else {
       if (stoneAtPos !== null) {
+        // Pick up existing stone from board
         setHeldStone({
           color: stoneAtPos as 0 | 1,
           fromBoard: pos,
         });
         haptic.stonePickedUp();
+      } else {
+        // Direct placement - place stone of current turn's color without picking up first
+        const turnColor = game.currentTurn as 0 | 1;
+        const potCount = turnColor === 0 ? game.blackPotCount : game.whitePotCount;
+
+        if (potCount <= 0) return;
+
+        if (wouldBeSuicide(game.boardState, pos.x, pos.y, turnColor)) {
+          haptic.invalidMove();
+          return;
+        }
+
+        haptic.stonePlaced();
+        performAction('place', {
+          stoneColor: turnColor,
+          toX: pos.x,
+          toY: pos.y,
+        });
       }
     }
   };

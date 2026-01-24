@@ -89,13 +89,13 @@ export async function POST(
         if (typeof stoneColor !== 'number' || stoneColor < 0 || stoneColor >= playerCount) {
           const err = await errorResponse(ERROR_IDS.WILDE_INVALID_STONE_COLOR, 'Invalid stone color', 400);
           if (err) return err;
-          return NextResponse.json({ error: 'Invalid stone color' }, { status: 400 });
+          return NextResponse.json({}, { status: 400 });
         }
         // Enforce turn order
         if (stoneColor !== currentTurn) {
           const err = await errorResponse(ERROR_IDS.WILDE_INVALID_MOVE, 'Invalid move', 400);
           if (err) return err;
-          return NextResponse.json({ error: 'Invalid move' }, { status: 400 });
+          return NextResponse.json({}, { status: 400 });
         }
         if (typeof toX !== 'number' || typeof toY !== 'number') {
           const err = await errorResponse(ERROR_IDS.WILDE_INVALID_POSITION, 'Invalid position', 400);

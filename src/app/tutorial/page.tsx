@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TutorialBoard from '@/components/TutorialBoard';
 import { useDeviceType } from '@/hooks/useDeviceType';
@@ -174,6 +174,19 @@ const tutorialSteps: TutorialStep[] = [
     ],
   },
   {
+    title: "Passing",
+    description: "A player can pass their turn by clicking PASS. If the other player then places a stone, the pass is reset. But if both players pass consecutively (one after the other), the game ends and scoring begins.",
+    board: withStones([
+      { x: 2, y: 2, color: 0 }, { x: 3, y: 2, color: 0 }, { x: 4, y: 2, color: 0 },
+      { x: 2, y: 3, color: 0 }, { x: 4, y: 3, color: 0 },
+      { x: 2, y: 4, color: 0 }, { x: 3, y: 4, color: 0 }, { x: 4, y: 4, color: 0 },
+      { x: 5, y: 2, color: 1 }, { x: 6, y: 2, color: 1 }, { x: 7, y: 2, color: 1 },
+      { x: 5, y: 3, color: 1 }, { x: 7, y: 3, color: 1 },
+      { x: 5, y: 4, color: 1 }, { x: 6, y: 4, color: 1 }, { x: 7, y: 4, color: 1 },
+    ]),
+    crossMarkers: [{ x: 3, y: 3 }, { x: 6, y: 3 }],
+  },
+  {
     title: "You're Ready!",
     description: "You know the basics! Start with 9x9 boards to practice. Remember: connect your stones, make eyes, and surround territory. Have fun!",
     board: withStones([
@@ -191,7 +204,40 @@ export default function TutorialPage() {
   const deviceType = useDeviceType();
   const isTablet = deviceType === 'tablet';
   const [currentStep, setCurrentStep] = useState(0);
+  const [referrerPath, setReferrerPath] = useState<string | null>(null);
   const step = tutorialSteps[currentStep];
+
+  // Store the referrer on first render
+  useEffect(() => {
+    // Get referrer from document or sessionStorage
+    const stored = sessionStorage.getItem('tutorialReferrer');
+    if (!stored) {
+      // First visit to tutorial - store current referrer
+      const ref = document.referrer;
+      if (ref) {
+        try {
+          const url = new URL(ref);
+          // Only store if same origin
+          if (url.origin === window.location.origin) {
+            sessionStorage.setItem('tutorialReferrer', url.pathname);
+            setReferrerPath(url.pathname);
+          }
+        } catch {}
+      }
+    } else {
+      setReferrerPath(stored);
+    }
+  }, []);
+
+  const goHome = () => {
+    // Clear the stored referrer
+    sessionStorage.removeItem('tutorialReferrer');
+    if (referrerPath) {
+      router.push(referrerPath);
+    } else {
+      router.push('/');
+    }
+  };
 
   const goToStep = (index: number) => {
     if (index >= 0 && index < tutorialSteps.length) {
@@ -229,7 +275,7 @@ export default function TutorialPage() {
           <div className="flex items-center justify-between">
             {currentStep === 0 ? (
               <button
-                onClick={() => router.push('/')}
+                onClick={goHome}
                 className="w-24 py-2 bg-white text-zinc-800 rounded-lg font-bold hover:bg-zinc-100 transition-colors"
               >
                 Home
@@ -245,7 +291,7 @@ export default function TutorialPage() {
 
             {currentStep === tutorialSteps.length - 1 ? (
               <button
-                onClick={() => router.push('/')}
+                onClick={goHome}
                 className="w-24 py-2 bg-white text-zinc-800 rounded-lg font-bold hover:bg-zinc-100 transition-colors"
               >
                 Home

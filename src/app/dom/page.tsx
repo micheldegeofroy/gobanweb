@@ -182,7 +182,7 @@ export default function DomGoHome() {
             onClick={() => router.push('/')}
             className="text-sm font-medium hover:underline text-white/80 hover:text-white"
           >
-            ← Back to Classic Go
+            ← Discover More Go Games
           </button>
         </div>
 

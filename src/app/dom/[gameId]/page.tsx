@@ -73,6 +73,7 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
   const [copied, setCopied] = useState(false);
   const [heldStone, setHeldStone] = useState<HeldStone | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
+  const [currentTurn, setCurrentTurn] = useState<0 | 1>(0); // Local turn tracking
   const hasInitialized = useRef(false);
 
   // Replay state
@@ -101,7 +102,7 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
       const data = await res.json();
 
       if (!forceApply) {
-        const OPTIMISTIC_PROTECTION_MS = 2500;
+        const OPTIMISTIC_PROTECTION_MS = 4000;
         const timeSinceOptimistic = Date.now() - lastOptimisticUpdate.current;
 
         if (timeSinceOptimistic < OPTIMISTIC_PROTECTION_MS) {
@@ -149,9 +150,9 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
     if (!game || !privateKey || !gameId) return;
 
     let interval: NodeJS.Timeout;
-    const ACTIVE_POLL_MS = 2000;
+    const ACTIVE_POLL_MS = 3000;
     const HIDDEN_POLL_MS = 10000;
-    const ACTION_COOLDOWN_MS = 1500;
+    const ACTION_COOLDOWN_MS = 3000;
 
     const pollIfReady = () => {
       if (Date.now() - lastActionTime.current < ACTION_COOLDOWN_MS) return;
@@ -318,6 +319,7 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
             blackCaptured: prev.blackCaptured + whiteCaptured,
             whiteCaptured: prev.whiteCaptured + blackCaptured,
           } : null);
+          setCurrentTurn(prev => prev === 0 ? 1 : 0);
           setHeldStone(null);
           performAction('place', {
             stoneColor: heldStone.color,
@@ -333,6 +335,54 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
           fromBoard: pos,
         });
         haptic.stonePickedUp();
+      } else {
+        // Direct placement - place stone of current turn's color without picking up first
+        const turnColor = currentTurn;
+        const potCount = turnColor === 0 ? game.blackPotCount : game.whitePotCount;
+        if (potCount <= 0) return;
+
+        if (wouldBeSuicide(game.boardState, pos.x, pos.y, turnColor)) {
+          haptic.invalidMove();
+          return;
+        }
+        if (game.koPointX !== null && game.koPointY !== null && pos.x === game.koPointX && pos.y === game.koPointY) {
+          haptic.invalidMove();
+          return;
+        }
+
+        lastActionTime.current = Date.now();
+
+        // Optimistic update - place stone and detect captures
+        const newBoard = game.boardState.map(row => [...row]);
+        newBoard[pos.y][pos.x] = turnColor;
+        const { newBoard: boardAfterCaptures, blackCaptured, whiteCaptured } = detectAndRemoveCaptures(newBoard);
+
+        if (blackCaptured > 0 || whiteCaptured > 0) {
+          haptic.capture();
+        } else {
+          haptic.stonePlaced();
+        }
+
+        lastOptimisticUpdate.current = Date.now();
+        setGame(prev => prev ? {
+          ...prev,
+          boardState: boardAfterCaptures,
+          lastMoveX: pos.x,
+          lastMoveY: pos.y,
+          blackPotCount: prev.blackPotCount - (turnColor === 0 ? 1 : 0),
+          whitePotCount: prev.whitePotCount - (turnColor === 1 ? 1 : 0),
+          blackOnBoard: prev.blackOnBoard + (turnColor === 0 ? 1 : 0) - blackCaptured,
+          whiteOnBoard: prev.whiteOnBoard + (turnColor === 1 ? 1 : 0) - whiteCaptured,
+          blackCaptured: prev.blackCaptured + whiteCaptured,
+          whiteCaptured: prev.whiteCaptured + blackCaptured,
+        } : null);
+        setCurrentTurn(prev => prev === 0 ? 1 : 0);
+
+        performAction('place', {
+          stoneColor: turnColor,
+          toX: pos.x,
+          toY: pos.y,
+        });
       }
     }
   };
@@ -501,6 +551,7 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
         koPointX: data.koPointX,
         koPointY: data.koPointY,
       } : null);
+      setCurrentTurn(0); // Reset to black's turn
       setHeldStone(null);
     } catch (err) {
       console.error('Error clearing board:', err);
@@ -538,6 +589,7 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
         koPointX: data.koPointX,
         koPointY: data.koPointY,
       } : null);
+      setCurrentTurn(prev => prev === 0 ? 1 : 0); // Toggle turn back
       setHeldStone(null);
     } catch (err) {
       console.error('Error undoing move:', err);
@@ -671,13 +723,6 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
         {isReplaying ? 'REPLAYING' : 'REPLAY'}
       </button>
       <button
-        onClick={clearBoard}
-        className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity"
-        style={{ color: airbnbRed }}
-      >
-        CLEAR
-      </button>
-      <button
         onClick={undoMove}
         className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity"
         style={{ color: airbnbRed }}
@@ -785,9 +830,6 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
                   </button>
                   <button onClick={undoMove} className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: airbnbRed }}>
                     UNDO
-                  </button>
-                  <button onClick={clearBoard} className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity" style={{ color: airbnbRed }}>
-                    CLEAR
                   </button>
                   <button onClick={startReplay} disabled={isReplaying} className="font-semibold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50" style={{ color: airbnbRed }}>
                     {isReplaying ? 'REPLAYING' : 'REPLAY'}

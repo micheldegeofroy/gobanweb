@@ -72,6 +72,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   const [keyInput, setKeyInput] = useState('');
   const [copied, setCopied] = useState(false);
   const [heldStone, setHeldStone] = useState<HeldStone | null>(null);
+  const [lastPass, setLastPass] = useState<'left' | 'right' | null>(null);
+  const [gameEnded, setGameEnded] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const hasInitialized = useRef(false);
 
@@ -103,7 +105,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       // Protect optimistic updates from being overwritten by stale poll data
       // Skip this check if forceApply is true (used after action confirmation)
       if (!forceApply) {
-        const OPTIMISTIC_PROTECTION_MS = 2500; // Protect for 2.5s after optimistic update
+        const OPTIMISTIC_PROTECTION_MS = 4000; // Protect for 4s after optimistic update
         const timeSinceOptimistic = Date.now() - lastOptimisticUpdate.current;
 
         // If we're within the protection window, don't apply poll data
@@ -157,9 +159,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     if (!game || !privateKey || !gameId) return;
 
     let interval: NodeJS.Timeout;
-    const ACTIVE_POLL_MS = 2000;   // 2s when tab is visible
+    const ACTIVE_POLL_MS = 3000;   // 3s when tab is visible
     const HIDDEN_POLL_MS = 10000;  // 10s when tab is hidden
-    const ACTION_COOLDOWN_MS = 1500; // Skip polling for 1.5s after action
+    const ACTION_COOLDOWN_MS = 3000; // Skip polling for 3s after action
 
     const pollIfReady = () => {
       // Skip polling if we recently performed an action (server response is authoritative)
@@ -197,6 +199,11 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     }
   ) => {
     if (!privateKey || !game) return;
+
+    // A move breaks the pass chain
+    if (actionType === 'place' || actionType === 'move') {
+      setLastPass(null);
+    }
 
     // Mark action time to prevent polling from overwriting with stale data
     lastActionTime.current = Date.now();
@@ -589,6 +596,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         koPointY: data.koPointY,
       } : null);
       setHeldStone(null);
+      setLastPass(null);
+      setGameEnded(false);
     } catch (err) {
       console.error('Error clearing board:', err);
       setError('Failed to clear board');
@@ -727,6 +736,42 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
 
   if (!game) return null;
 
+  // Handle pass button click
+  const handlePass = (side: 'left' | 'right') => {
+    if (gameEnded) return;
+
+    // Check for consecutive passes (different players)
+    if (lastPass !== null && lastPass !== side) {
+      // Two consecutive passes from different sides - game ends
+      setGameEnded(true);
+    }
+    setLastPass(side);
+  };
+
+  // Bottom buttons with PASS on both sides
+  const bottomButtons = gameEnded ? (
+    <>
+      <button className="font-bold text-sm uppercase invisible" disabled>PASS</button>
+      <span className="text-black font-bold text-sm uppercase">GAME ENDED</span>
+      <button className="font-bold text-sm uppercase invisible" disabled>PASS</button>
+    </>
+  ) : (
+    <>
+      <button
+        onClick={() => handlePass('left')}
+        className={`font-bold text-sm uppercase transition-opacity hover:opacity-70 ${lastPass === 'left' ? 'text-white' : 'text-black'}`}
+      >
+        PASS
+      </button>
+      <button
+        onClick={() => handlePass('right')}
+        className={`font-bold text-sm uppercase transition-opacity hover:opacity-70 ${lastPass === 'right' ? 'text-white' : 'text-black'}`}
+      >
+        PASS
+      </button>
+    </>
+  );
+
   // Top buttons for GoBoard perimeter - black bold text
   const topButtons = (
     <>
@@ -742,12 +787,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50"
       >
         {isReplaying ? 'REPLAYING' : 'REPLAY'}
-      </button>
-      <button
-        onClick={clearBoard}
-        className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity"
-      >
-        CLEAR
       </button>
       <button
         onClick={undoMove}
@@ -790,7 +829,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   : null)}
                 onBoardClick={isReplaying ? () => {} : handleBoardClick}
                 topButtons={topButtons}
-              />
+                bottomButtons={bottomButtons}
+                hideHoverRing={true}
+                              />
               {/* Left pot (White) - positioned from left edge */}
               <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 'calc(100% + 20px)' }}>
                 <StonePot
@@ -849,9 +890,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   <button onClick={undoMove} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
                     UNDO
                   </button>
-                  <button onClick={clearBoard} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity">
-                    CLEAR
-                  </button>
                   <button onClick={startReplay} disabled={isReplaying} className="text-black font-bold text-sm uppercase hover:opacity-70 transition-opacity disabled:opacity-50">
                     {isReplaying ? 'REPLAYING' : 'REPLAY'}
                   </button>
@@ -860,8 +898,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                   </button>
                 </div>
               }
-              bottomButtons={topButtons}
-            />
+              bottomButtons={bottomButtons}
+              hideHoverRing={true}
+                          />
             {/* Bottom pot centered */}
             <div className="flex justify-center mt-4">
               <StonePot
@@ -887,7 +926,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 : null)}
               onBoardClick={isReplaying ? () => {} : handleBoardClick}
               topButtons={topButtons}
-            />
+              bottomButtons={bottomButtons}
+              hideHoverRing={true}
+                          />
             {/* Both pots at bottom */}
             <div className="flex gap-4 mt-4">
               <StonePot

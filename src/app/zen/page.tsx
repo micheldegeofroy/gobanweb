@@ -152,7 +152,7 @@ export default function ZenGoHome() {
         {/* Features */}
         <section className="max-w-md mx-auto mt-12 text-center">
           <h2 className="text-xl font-semibold text-zinc-300 mb-4">
-            Why Play Go on Goban Web?
+            Why Play on Goban Web?
           </h2>
           <div className="bg-zinc-800/50 rounded-xl p-6">
             <ul className="text-sm text-zinc-400 space-y-2 text-left">
@@ -165,6 +165,16 @@ export default function ZenGoHome() {
             </ul>
           </div>
         </section>
+
+        {/* Back to Menu */}
+        <div className="max-w-md mx-auto mt-8 text-center">
+          <button
+            onClick={() => router.push('/')}
+            className="text-sm font-medium hover:underline text-zinc-500 hover:text-zinc-300"
+          >
+            ← Back to Menu
+          </button>
+        </div>
 
       </div>
     </div>

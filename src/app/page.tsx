@@ -361,10 +361,10 @@ export default function AllGamesPage() {
               Free Tutorial
             </button>
             <button
-              onClick={() => router.push('/legal')}
+              onClick={() => router.push('/legal/terms')}
               className="text-zinc-400 hover:text-white text-sm transition-colors"
             >
-              Legal
+              Terms & Conditions
             </button>
           </div>
         </footer>

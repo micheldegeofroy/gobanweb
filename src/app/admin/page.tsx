@@ -3,254 +3,216 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-interface ErrorToggle {
-  id: string;
-  message: string;
-  enabled: boolean;
-}
-
-interface ErrorToggles {
-  normal: ErrorToggle[];
-  crazy: ErrorToggle[];
-  wilde: ErrorToggle[];
-}
+const ADMIN_PASSWORD = 'goban2024'; // Simple password
 
 export default function AdminPage() {
   const router = useRouter();
-  const [toggles, setToggles] = useState<ErrorToggles | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [alertsEnabled, setAlertsEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState<string | null>(null);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    normal: true,
-    crazy: true,
-    wilde: true,
-  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchToggles();
+    // Check if already authenticated
+    const auth = localStorage.getItem('admin_auth');
+    if (auth === 'true') {
+      setIsAuthenticated(true);
+      fetchSettings();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchToggles = async () => {
+  const fetchSettings = async () => {
     try {
-      const res = await fetch('/api/admin/errors');
+      const res = await fetch('/api/admin/settings');
       if (res.ok) {
         const data = await res.json();
-        setToggles(data);
+        setAlertsEnabled(data.alerts_enabled !== 'false');
       }
     } catch (err) {
-      console.error('Failed to fetch toggles:', err);
+      console.error('Failed to fetch settings:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggle = async (id: string, currentEnabled: boolean) => {
-    setUpdating(id);
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === ADMIN_PASSWORD) {
+      localStorage.setItem('admin_auth', 'true');
+      setIsAuthenticated(true);
+      setError('');
+      fetchSettings();
+    } else {
+      setError('Incorrect password');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin_auth');
+    setIsAuthenticated(false);
+    setPassword('');
+  };
+
+  const handleToggleAlerts = async () => {
+    setSaving(true);
+    const newValue = !alertsEnabled;
     try {
-      const res = await fetch('/api/admin/errors', {
+      const res = await fetch('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, enabled: !currentEnabled }),
+        body: JSON.stringify({ key: 'alerts_enabled', value: String(newValue) }),
       });
 
       if (res.ok) {
-        // Update local state
-        setToggles(prev => {
-          if (!prev) return prev;
-          const updated = { ...prev };
-          for (const gameType of ['normal', 'crazy', 'wilde'] as const) {
-            updated[gameType] = updated[gameType].map(t =>
-              t.id === id ? { ...t, enabled: !currentEnabled } : t
-            );
-          }
-          return updated;
+        setAlertsEnabled(newValue);
+
+        // Also update all error toggles to match
+        await fetch('/api/admin/errors', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gameType: 'all', enabled: newValue }),
         });
       }
     } catch (err) {
-      console.error('Failed to update toggle:', err);
+      console.error('Failed to update setting:', err);
     } finally {
-      setUpdating(null);
+      setSaving(false);
     }
   };
 
-  const handleBulkToggle = async (gameType: string | 'all', enabled: boolean) => {
-    setUpdating(gameType);
-    try {
-      const res = await fetch('/api/admin/errors', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameType, enabled }),
-      });
-
-      if (res.ok) {
-        // Refresh all toggles
-        await fetchToggles();
-      }
-    } catch (err) {
-      console.error('Failed to bulk update:', err);
-    } finally {
-      setUpdating(null);
-    }
-  };
-
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
-
-  const getEnabledCount = (errors: ErrorToggle[]) => {
-    return errors.filter(e => e.enabled).length;
-  };
-
-  if (loading) {
+  // Login screen
+  if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
-        <div className="text-zinc-400 text-xl">Loading...</div>
-      </div>
-    );
-  }
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <h1 className="text-white text-3xl font-bold text-center mb-8">Admin</h1>
 
-  if (!toggles) {
-    return (
-      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
-        <div className="text-red-400 text-xl">Failed to load error toggles</div>
-      </div>
-    );
-  }
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="w-full px-4 py-3 bg-white text-black border-2 border-white rounded-none focus:outline-none focus:ring-0"
+              autoFocus
+            />
 
-  const gameTypes = [
-    { key: 'normal', label: 'Normal Go', color: 'amber' },
-    { key: 'crazy', label: 'Crazy Go (4-player)', color: 'purple' },
-    { key: 'wilde', label: 'Wilde Go (2-8 players)', color: 'emerald' },
-  ] as const;
+            {error && (
+              <p className="text-white text-sm">{error}</p>
+            )}
 
-  return (
-    <div className="min-h-screen bg-zinc-900 text-zinc-100 p-4 sm:p-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Error Toggles</h1>
-            <p className="text-zinc-400 mt-1">Enable or disable error validations for testing</p>
-          </div>
+            <button
+              type="submit"
+              className="w-full px-4 py-3 bg-white text-black font-bold hover:bg-gray-200 transition-colors"
+            >
+              Login
+            </button>
+          </form>
+
           <button
             onClick={() => router.push('/')}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+            className="w-full mt-4 px-4 py-3 border-2 border-white text-white hover:bg-white hover:text-black transition-colors"
           >
             Back to Home
           </button>
         </div>
+      </div>
+    );
+  }
 
-        {/* Global Controls */}
-        <div className="bg-zinc-800 rounded-xl p-4 mb-6">
-          <div className="flex flex-wrap gap-3">
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  // Admin panel
+  return (
+    <div className="min-h-screen bg-black text-white p-4 sm:p-8">
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-12">
+          <h1 className="text-3xl font-bold">Admin</h1>
+          <div className="flex gap-4">
             <button
-              onClick={() => handleBulkToggle('all', true)}
-              disabled={updating === 'all'}
-              className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-green-800 rounded-lg font-medium transition-colors"
+              onClick={() => router.push('/')}
+              className="px-4 py-2 border border-white hover:bg-white hover:text-black transition-colors"
             >
-              Enable All
+              Home
             </button>
             <button
-              onClick={() => handleBulkToggle('all', false)}
-              disabled={updating === 'all'}
-              className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:bg-red-800 rounded-lg font-medium transition-colors"
+              onClick={handleLogout}
+              className="px-4 py-2 border border-white hover:bg-white hover:text-black transition-colors"
             >
-              Disable All
+              Logout
             </button>
           </div>
         </div>
 
-        {/* Game Type Sections */}
-        {gameTypes.map(({ key, label, color }) => {
-          const errors = toggles[key];
-          const enabledCount = getEnabledCount(errors);
-          const isExpanded = expandedSections[key];
-
-          return (
-            <div key={key} className="bg-zinc-800 rounded-xl mb-4 overflow-hidden">
-              {/* Section Header */}
-              <button
-                onClick={() => toggleSection(key)}
-                className="w-full px-4 py-4 flex items-center justify-between hover:bg-zinc-750 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full bg-${color}-500`} />
-                  <h2 className="text-xl font-semibold">{label}</h2>
-                  <span className="text-zinc-400 text-sm">
-                    ({enabledCount}/{errors.length} enabled)
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleBulkToggle(key, true); }}
-                    disabled={updating === key}
-                    className="px-3 py-1 text-sm bg-green-600/20 hover:bg-green-600/40 text-green-400 rounded transition-colors"
-                  >
-                    All On
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleBulkToggle(key, false); }}
-                    disabled={updating === key}
-                    className="px-3 py-1 text-sm bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded transition-colors"
-                  >
-                    All Off
-                  </button>
-                  <svg
-                    className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </button>
-
-              {/* Error List */}
-              {isExpanded && (
-                <div className="border-t border-zinc-700">
-                  {errors.map((error, index) => (
-                    <div
-                      key={error.id}
-                      className={`px-4 py-3 flex items-center justify-between ${
-                        index !== errors.length - 1 ? 'border-b border-zinc-700/50' : ''
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0 pr-4">
-                        <code className="text-sm text-zinc-300 break-all">{error.message}</code>
-                      </div>
-                      <button
-                        onClick={() => handleToggle(error.id, error.enabled)}
-                        disabled={updating === error.id}
-                        className={`relative w-12 h-6 rounded-full transition-colors ${
-                          error.enabled
-                            ? 'bg-green-600'
-                            : 'bg-zinc-600'
-                        } ${updating === error.id ? 'opacity-50' : ''}`}
-                      >
-                        <div
-                          className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                            error.enabled ? 'left-7' : 'left-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* Master Alerts Toggle */}
+        <div className="border border-white p-6 mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Site Alerts</h2>
+              <p className="text-gray-400 mt-1">
+                {alertsEnabled ? 'All validation alerts are enabled' : 'All validation alerts are disabled'}
+              </p>
             </div>
-          );
-        })}
+            <button
+              onClick={handleToggleAlerts}
+              disabled={saving}
+              className={`relative w-16 h-8 transition-colors ${
+                alertsEnabled ? 'bg-white' : 'bg-gray-700'
+              } ${saving ? 'opacity-50' : ''}`}
+            >
+              <div
+                className={`absolute top-1 w-6 h-6 transition-all ${
+                  alertsEnabled
+                    ? 'left-9 bg-black'
+                    : 'left-1 bg-white'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
 
-        {/* Info Box */}
-        <div className="bg-zinc-800/50 rounded-xl p-4 mt-6">
-          <h3 className="font-semibold text-zinc-300 mb-2">How it works</h3>
-          <ul className="text-sm text-zinc-400 space-y-1">
-            <li>- Toggle OFF to skip that validation check in the API</li>
-            <li>- Useful for testing edge cases without restrictions</li>
-            <li>- Changes take effect immediately</li>
-            <li>- Settings persist in the database</li>
-          </ul>
+        {/* Legal Pages Editor Link */}
+        <div className="border border-white p-6 mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Legal Pages</h2>
+              <p className="text-gray-400 mt-1">Edit terms and conditions, privacy policy</p>
+            </div>
+            <button
+              onClick={() => router.push('/admin/legal')}
+              className="px-4 py-2 bg-white text-black font-bold hover:bg-gray-200 transition-colors"
+            >
+              Edit
+            </button>
+          </div>
+        </div>
+
+        {/* Error Toggles Link */}
+        <div className="border border-white p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Error Toggles</h2>
+              <p className="text-gray-400 mt-1">Fine-tune individual validation rules</p>
+            </div>
+            <button
+              onClick={() => router.push('/admin/errors')}
+              className="px-4 py-2 bg-white text-black font-bold hover:bg-gray-200 transition-colors"
+            >
+              Configure
+            </button>
+          </div>
         </div>
       </div>
     </div>

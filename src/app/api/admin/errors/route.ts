@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { errorToggles } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 
 // All error definitions with their keys and messages
 export const ALL_ERRORS = {
@@ -81,6 +81,45 @@ export const ALL_ERRORS = {
     { id: 'wilde_unknown_action', message: 'Unknown action type' },
     { id: 'wilde_no_moves_undo', message: 'No moves to undo' },
     { id: 'wilde_no_moves_replay', message: 'No moves to replay' },
+  ],
+  zen: [
+    { id: 'zen_private_key_required', message: 'Private key is required' },
+    { id: 'zen_game_not_found', message: 'Game not found' },
+    { id: 'zen_invalid_private_key', message: 'Invalid private key' },
+    { id: 'zen_invalid_position', message: 'Invalid position' },
+    { id: 'zen_position_out_of_bounds', message: 'Position out of bounds' },
+    { id: 'zen_position_occupied', message: 'Position is occupied' },
+    { id: 'zen_no_stones_in_pot', message: 'No stones in pot' },
+    { id: 'zen_no_stone_at_position', message: 'No stone at position' },
+    { id: 'zen_invalid_from_position', message: 'Invalid from position' },
+    { id: 'zen_invalid_to_position', message: 'Invalid to position' },
+    { id: 'zen_from_out_of_bounds', message: 'From position out of bounds' },
+    { id: 'zen_to_out_of_bounds', message: 'To position out of bounds' },
+    { id: 'zen_same_position', message: 'Cannot move to same position' },
+    { id: 'zen_no_stone_from', message: 'No stone at from position' },
+    { id: 'zen_to_occupied', message: 'To position is occupied' },
+    { id: 'zen_no_moves_undo', message: 'No moves to undo' },
+  ],
+  bang: [
+    { id: 'bang_private_key_required', message: 'Private key is required' },
+    { id: 'bang_game_not_found', message: 'Game not found' },
+    { id: 'bang_invalid_private_key', message: 'Invalid private key' },
+    { id: 'bang_invalid_stone_color', message: 'Invalid stone color' },
+    { id: 'bang_not_your_turn', message: 'Not your turn' },
+    { id: 'bang_invalid_position', message: 'Invalid position' },
+    { id: 'bang_position_out_of_bounds', message: 'Position out of bounds' },
+    { id: 'bang_position_occupied', message: 'Position is occupied' },
+    { id: 'bang_no_black_stones', message: 'No black stones in pot' },
+    { id: 'bang_no_white_stones', message: 'No white stones in pot' },
+    { id: 'bang_no_stone_at_position', message: 'No stone at position' },
+    { id: 'bang_invalid_from_position', message: 'Invalid from position' },
+    { id: 'bang_invalid_to_position', message: 'Invalid to position' },
+    { id: 'bang_from_out_of_bounds', message: 'From position out of bounds' },
+    { id: 'bang_to_out_of_bounds', message: 'To position out of bounds' },
+    { id: 'bang_no_stone_from', message: 'No stone at from position' },
+    { id: 'bang_to_occupied', message: 'To position is occupied' },
+    { id: 'bang_invalid_action', message: 'Invalid action type' },
+    { id: 'bang_no_moves_undo', message: 'No moves to undo' },
   ],
 };
 
@@ -179,28 +218,41 @@ export async function PUT(request: NextRequest) {
       ? ALL_ERRORS[gameType as keyof typeof ALL_ERRORS] || []
       : Object.values(ALL_ERRORS).flat();
 
-    // Upsert all toggles
-    for (const error of errorsToUpdate) {
-      const type = Object.entries(ALL_ERRORS).find(([, errors]) =>
-        errors.some(e => e.id === error.id)
-      )?.[0] || 'normal';
+    const errorIds = errorsToUpdate.map(e => e.id);
 
-      await db
-        .insert(errorToggles)
-        .values({
+    // First, update all existing records in a single query
+    await db
+      .update(errorToggles)
+      .set({ enabled, updatedAt: new Date() })
+      .where(inArray(errorToggles.id, errorIds));
+
+    // Get existing IDs to find missing ones
+    const existing = await db
+      .select({ id: errorToggles.id })
+      .from(errorToggles)
+      .where(inArray(errorToggles.id, errorIds));
+
+    const existingIds = new Set(existing.map(e => e.id));
+
+    // Insert any missing records
+    const missingErrors = errorsToUpdate.filter(e => !existingIds.has(e.id));
+
+    if (missingErrors.length > 0) {
+      const values = missingErrors.map(error => {
+        const type = Object.entries(ALL_ERRORS).find(([, errors]) =>
+          errors.some(e => e.id === error.id)
+        )?.[0] || 'normal';
+
+        return {
           id: error.id,
           gameType: type,
           errorMessage: error.message,
           enabled,
           updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: errorToggles.id,
-          set: {
-            enabled,
-            updatedAt: new Date(),
-          },
-        });
+        };
+      });
+
+      await db.insert(errorToggles).values(values);
     }
 
     return NextResponse.json({ success: true, count: errorsToUpdate.length });

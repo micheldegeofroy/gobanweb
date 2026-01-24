@@ -164,6 +164,16 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        {/* Back to Menu */}
+        <div className="max-w-md mx-auto mt-8 text-center">
+          <button
+            onClick={() => router.push('/')}
+            className="text-sm font-medium hover:underline text-zinc-400 hover:text-zinc-200"
+          >
+            ← Back to Menu
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,25 @@
 # Robots.txt for Goban Web
+# https://gobanweb.vercel.app
+
 User-agent: *
 Allow: /
-Disallow: /api/
-Disallow: /game/
 
-# Sitemap
+# Block API routes
+Disallow: /api/
+
+# Block admin pages
+Disallow: /admin/
+
+# Block individual game sessions (these are private)
+Disallow: /game/
+Disallow: /wilde/*?
+Disallow: /crazy/*?
+Disallow: /zen/*?
+Disallow: /dom/*?
+Disallow: /bang/*?
+
+# Block URLs with private keys
+Disallow: /*?key=
+
+# Sitemap location
 Sitemap: https://gobanweb.vercel.app/sitemap.xml
