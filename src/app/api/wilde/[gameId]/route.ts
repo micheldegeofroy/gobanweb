@@ -33,6 +33,7 @@ export async function GET(
       koPointX: game[0].koPointX,
       koPointY: game[0].koPointY,
       currentTurn: game[0].currentTurn,
+      moveNumber: game[0].moveNumber,
       pakitaMode: game[0].pakitaMode,
       customHues: game[0].customHues,
       connectedUsers: game[0].connectedUsers,

@@ -33,6 +33,7 @@ interface WildeGameData {
   koPointX: number | null;
   koPointY: number | null;
   currentTurn: number;
+  moveNumber: number;
   pakitaMode: boolean;
   customHues: Record<number, number> | null;
   connectedUsers: number;
@@ -220,10 +221,13 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
   const [pakitaActive, setPakitaActive] = useState(false);
   const [pakitaPosition, setPakitaPosition] = useState<PakitaPosition | null>(null);
   const [pakitaStonesEaten, setPakitaStonesEaten] = useState(0);
-  const pakitaSpawnTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pakitaMoveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pakitaPositionRef = useRef<PakitaPosition | null>(null);
   const pakitaActiveRef = useRef(false);
+  const pakitaStepsRef = useRef<number>(0); // Track steps taken to ensure at least 1 turn
+  // Move-based spawn tracking: spawn after 10-20 moves
+  const pakitaLastSpawnMoveRef = useRef<number>(0);
+  const pakitaSpawnThresholdRef = useRef<number>(Math.floor(Math.random() * 11) + 10); // 10-20
   const gameRef = useRef<WildeGameData | null>(null);
   const privateKeyRef = useRef<string | null>(null);
   const gameIdRef = useRef<string | null>(null);
@@ -433,6 +437,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
             lastMoveX: pos.x,
             lastMoveY: pos.y,
             stonePots: newPots,
+            moveNumber: prev.moveNumber + 1,
           } : null);
           setHeldStone(null);
 
@@ -488,6 +493,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
             lastMoveY: pos.y,
             stonePots: newPots,
             currentTurn: (prev.currentTurn + 1) % prev.playerCount,
+            moveNumber: prev.moveNumber + 1,
           } : null);
           setHeldStone(null);
 
@@ -550,6 +556,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
           lastMoveY: pos.y,
           stonePots: newPots,
           currentTurn: (prev.currentTurn + 1) % prev.playerCount,
+          moveNumber: prev.moveNumber + 1,
         } : null);
 
         performAction('place', {
@@ -776,12 +783,17 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
   }, [isPlaying, replayIndex, replayActions.length, stepForward]);
 
   // Pakita spawn function - uses refs to avoid recreating on every game poll
-  const spawnPakita = useCallback(() => {
+  const spawnPakita = useCallback((currentMoveNumber: number) => {
     const currentGame = gameRef.current;
     if (!currentGame) return;
 
-    // Reset stones eaten for new spawn
+    // Reset stones eaten and steps for new spawn
     setPakitaStonesEaten(0);
+    pakitaStepsRef.current = 0;
+
+    // Reset move tracking: record current move and set new random threshold (10-20 moves)
+    pakitaLastSpawnMoveRef.current = currentMoveNumber;
+    pakitaSpawnThresholdRef.current = Math.floor(Math.random() * 11) + 10;
 
     // Choose random starting edge and direction
     const edge = Math.floor(Math.random() * 4);
@@ -816,36 +828,23 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
     playPakitaSound();
   }, []);
 
-  // Pakita spawn timer - schedules spawns when pakitaMode is enabled and no pakita is active
+  // Pakita spawn check - triggers after 10-20 moves since last spawn
   useEffect(() => {
     if (!game?.pakitaMode || isReplayMode || pakitaActive) return;
 
-    // Schedule spawn after 10 minutes ± 7 minutes (3-17 minutes)
-    // Base: 10 min = 600000ms, variation: ±7 min = ±420000ms
-    const baseDelay = 600000; // 10 minutes
-    const variation = 420000; // 7 minutes
-    const delay = baseDelay + (Math.random() * 2 - 1) * variation; // 180000 to 1020000ms
-    pakitaSpawnTimerRef.current = setTimeout(() => {
-      // Use ref to get current value, not stale closure value
-      if (!pakitaActiveRef.current) {
-        spawnPakita();
-      }
-    }, delay);
+    const movesSinceLastSpawn = game.moveNumber - pakitaLastSpawnMoveRef.current;
 
-    return () => {
-      if (pakitaSpawnTimerRef.current) {
-        clearTimeout(pakitaSpawnTimerRef.current);
-      }
-    };
-  }, [game?.pakitaMode, isReplayMode, pakitaActive, spawnPakita]);
+    // Check if we've reached the threshold
+    if (movesSinceLastSpawn >= pakitaSpawnThresholdRef.current) {
+      spawnPakita(game.moveNumber);
+    }
+  }, [game?.pakitaMode, game?.moveNumber, isReplayMode, pakitaActive, spawnPakita]);
 
   // Pakita movement effect
   useEffect(() => {
     if (!pakitaActive) return;
 
-    let steps = 0;
-
-    const movePakita = async () => {
+    const movePakita = () => {
       // Get fresh values from refs
       const currentPos = pakitaPositionRef.current;
       const currentGame = gameRef.current;
@@ -854,9 +853,6 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
 
       if (!currentPos || !currentGame) return;
 
-      const maxSteps = Math.max(currentGame.boardWidth, currentGame.boardHeight) * 2;
-      steps++;
-
       // Check if Pakita is at current position and there's a stone
       const currentStone = currentGame.boardState[currentPos.y]?.[currentPos.x];
       if (currentStone !== null && currentStone !== undefined) {
@@ -864,53 +860,82 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
         playEatSound();
         setPakitaStonesEaten(prev => prev + 1);
 
-        // Call API to persist the change
+        // Block polling to prevent stale server data from overwriting local changes
+        lastActionTime.current = Date.now();
+
+        // Update local state immediately (non-blocking)
+        setGame(prevGame => {
+          if (!prevGame) return prevGame;
+          const newBoard = prevGame.boardState.map(row => [...row]) as WildeBoard;
+          newBoard[currentPos.y][currentPos.x] = null;
+          const newPots = prevGame.stonePots.map((pot, i) =>
+            i === currentStone ? { ...pot, potCount: pot.potCount + 1, onBoard: pot.onBoard - 1 } : pot
+          );
+          return { ...prevGame, boardState: newBoard, stonePots: newPots };
+        });
+
+        // Fire API call in background (don't await - let players continue playing)
         if (currentPrivateKey && currentGameId) {
-          try {
-            const res = await fetch(`/api/wilde/${currentGameId}/action`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                privateKey: currentPrivateKey,
-                actionType: 'pakita_eat',
-                fromX: currentPos.x,
-                fromY: currentPos.y,
-              }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              setGame(prev => prev ? {
-                ...prev,
-                boardState: data.boardState,
-                stonePots: data.stonePots,
-              } : null);
-            }
-          } catch {
-            // Fallback to local update if API fails
-            setGame(prevGame => {
-              if (!prevGame) return prevGame;
-              const newBoard = prevGame.boardState.map(row => [...row]) as WildeBoard;
-              newBoard[currentPos.y][currentPos.x] = null;
-              const newPots = prevGame.stonePots.map((pot, i) =>
-                i === currentStone ? { ...pot, potCount: pot.potCount + 1, onBoard: pot.onBoard - 1 } : pot
-              );
-              return { ...prevGame, boardState: newBoard, stonePots: newPots };
-            });
-          }
+          fetch(`/api/wilde/${currentGameId}/action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              privateKey: currentPrivateKey,
+              actionType: 'pakita_eat',
+              fromX: currentPos.x,
+              fromY: currentPos.y,
+            }),
+          }).catch(() => {
+            // Silently ignore API errors - local state already updated
+          });
         }
       }
 
-      // Check if Pakita should exit
-      if (steps >= maxSteps) {
+      // Calculate next position (without wrapping)
+      let nextX = currentPos.x;
+      let nextY = currentPos.y;
+      let newDirection = chooseDirection(currentPos.direction, true);
+
+      switch (newDirection) {
+        case 'right': nextX = currentPos.x + 1; break;
+        case 'left': nextX = currentPos.x - 1; break;
+        case 'down': nextY = currentPos.y + 1; break;
+        case 'up': nextY = currentPos.y - 1; break;
+      }
+
+      // Check if Pakita would exit the board
+      const wouldExit = nextX < 0 || nextX >= currentGame.boardWidth || nextY < 0 || nextY >= currentGame.boardHeight;
+
+      // Must take at least 1 step before exiting - if would exit but haven't stepped yet, pick a different direction
+      if (wouldExit && pakitaStepsRef.current < 1) {
+        // Try to find a valid direction that doesn't exit
+        const directions: Direction[] = ['right', 'left', 'up', 'down'];
+        for (const dir of directions) {
+          let testX = currentPos.x;
+          let testY = currentPos.y;
+          switch (dir) {
+            case 'right': testX = currentPos.x + 1; break;
+            case 'left': testX = currentPos.x - 1; break;
+            case 'down': testY = currentPos.y + 1; break;
+            case 'up': testY = currentPos.y - 1; break;
+          }
+          if (testX >= 0 && testX < currentGame.boardWidth && testY >= 0 && testY < currentGame.boardHeight) {
+            nextX = testX;
+            nextY = testY;
+            newDirection = dir;
+            break;
+          }
+        }
+      } else if (wouldExit) {
+        // Allowed to exit after taking at least 1 step
         setPakitaActive(false);
         setPakitaPosition(null);
         return;
       }
 
-      // Calculate next position and move
-      const nextPos = getNextPosition(currentPos, currentGame.boardWidth, currentGame.boardHeight);
-      const newDirection = chooseDirection(currentPos.direction, true);
-      setPakitaPosition({ ...nextPos, direction: newDirection });
+      // Increment step counter and move to next position
+      pakitaStepsRef.current += 1;
+      setPakitaPosition({ x: nextX, y: nextY, direction: newDirection });
     };
 
     // Move every 300ms
@@ -1008,7 +1033,11 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
         koPointX: data.koPointX,
         koPointY: data.koPointY,
         currentTurn: data.currentTurn,
+        moveNumber: data.moveNumber ?? 0,
       } : null);
+      // Reset Pakita spawn tracking on clear
+      pakitaLastSpawnMoveRef.current = 0;
+      pakitaSpawnThresholdRef.current = Math.floor(Math.random() * 11) + 10;
       setHeldStone(null);
     } catch (err) {
       console.error('Error clearing board:', err);
@@ -1090,6 +1119,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
         koPointX: data.koPointX,
         koPointY: data.koPointY,
         currentTurn: data.currentTurn,
+        moveNumber: data.moveNumber ?? prev.moveNumber,
       } : null);
       setHeldStone(null);
     } catch (err) {

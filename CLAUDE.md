@@ -41,7 +41,7 @@ claude --dangerously-skip-permissions --continue
 
 ### Activation
 - Toggle on/off via the yellow "Pakita-Mendez" button when creating a Wilde Go game
-- When enabled, Pakita randomly appears during gameplay (3-17 minutes)
+- When enabled, Pakita appears after 10-20 moves (random), resets after each appearance
 
 ### Behavior
 - Appears on game edge randomly on the board during the game
