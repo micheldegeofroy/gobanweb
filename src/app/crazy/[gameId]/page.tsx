@@ -494,8 +494,6 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
           3: game.greyPotCount,
         };
 
-        if (potCounts[turnColor] <= 0) return;
-
         if (wouldBeSuicide(game.boardState, pos.x, pos.y, turnColor)) {
           haptic.invalidMove();
           return;

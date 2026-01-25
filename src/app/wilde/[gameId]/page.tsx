@@ -511,7 +511,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
         const turnColor = game.currentTurn;
         const pot = game.stonePots[turnColor];
 
-        if (!pot || pot.potCount <= 0) return;
+        if (!pot) return;
 
         if (wouldBeSuicide(game.boardState, pos.x, pos.y, turnColor, game.boardWidth, game.boardHeight)) {
           haptic.invalidMove();

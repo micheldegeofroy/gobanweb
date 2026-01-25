@@ -124,7 +124,7 @@ export default function WildeGoBoard({
 
   // Calculate canvas dimensions for rectangular board with square cells
   // Board fills the available space while maintaining square cells
-  const paddingRatio = 0.09;
+  const paddingRatio = 0.10;
 
   // Calculate cell size that fits within both width and height constraints
   const availableWidth = maxDims.maxWidth * (1 - paddingRatio * 2);
@@ -218,7 +218,7 @@ export default function WildeGoBoard({
     if (isGhost) ctx.globalAlpha = 1;
   }, [customHues]);
 
-  // Get star points for rectangular boards
+  // Get star points for rectangular boards - symmetrical placement
   const getStarPoints = useCallback((w: number, h: number): Position[] => {
     if (w < 7 || h < 7) return [];
 
@@ -227,8 +227,17 @@ export default function WildeGoBoard({
     const yOffset = getEdgeOffset(h);
 
     const points: Position[] = [];
-    const xPositions = [xOffset, Math.floor(w / 2), w - 1 - xOffset];
-    const yPositions = [yOffset, Math.floor(h / 2), h - 1 - yOffset];
+
+    // For odd dimensions, include center. For even, only corners.
+    const xIsOdd = w % 2 === 1;
+    const yIsOdd = h % 2 === 1;
+
+    const xPositions = xIsOdd
+      ? [xOffset, Math.floor(w / 2), w - 1 - xOffset]
+      : [xOffset, w - 1 - xOffset];
+    const yPositions = yIsOdd
+      ? [yOffset, Math.floor(h / 2), h - 1 - yOffset]
+      : [yOffset, h - 1 - yOffset];
 
     // Only include unique positions
     const seen = new Set<string>();
@@ -514,11 +523,11 @@ export default function WildeGoBoard({
           }`}
           style={{ touchAction: 'none' }}
         />
-        {/* Buttons in top perimeter area */}
+        {/* Buttons in top perimeter area - centered between grid edge and board edge */}
         {topButtons && (
           <div
             className="absolute flex items-center justify-between"
-            style={{ top: '1%', left: '10%', right: '10%' }}
+            style={{ top: '0%', left: '10%', right: '10%' }}
           >
             {topButtons}
           </div>

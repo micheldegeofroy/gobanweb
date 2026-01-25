@@ -97,13 +97,13 @@ export default function WildeStonePot({
         ring-2 ring-white
         ${isCurrentTurn ? 'ring-4 animate-pulse' : ''}
         ${isDropTarget ? 'scale-110 ring-4' : ''}
-        ${!isHoldingStone && potCount > 0 ? 'hover:scale-105 hover:brightness-110' : ''}
-        ${potCount === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+        ${!isHoldingStone ? 'hover:scale-105 hover:brightness-110' : ''}
+        cursor-pointer
       `}
       style={{
         backgroundColor: mainColor,
       }}
-      disabled={!isDropTarget && (isHoldingStone || potCount === 0)}
+      disabled={!isDropTarget && isHoldingStone}
       title={`${colorInfo.name}: ${potCount} in pot / ${captured} captured / ${onBoard} on board`}
     >
       {/* Stone preview */}

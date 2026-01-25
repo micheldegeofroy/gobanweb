@@ -56,11 +56,10 @@ export default function ZenStonePot({
           ring-4 ring-zinc-500 animate-pulse
           ${canPickUp ? 'cursor-grab hover:scale-105 hover:brightness-110 hover:ring-zinc-400 active:ring-zinc-300' : ''}
           ${isDropTarget ? 'cursor-pointer scale-110 ring-white' : ''}
-          ${potCount === 0 ? 'opacity-50 cursor-not-allowed' : ''}
-          ${!canPickUp && !canDropHere && potCount > 0 ? 'cursor-default' : ''}
+          ${!canPickUp && !canDropHere ? 'cursor-default' : ''}
           shadow-lg hover:shadow-xl
         `}
-        disabled={potCount === 0 && !canDropHere}
+        disabled={false}
         title={`${isBlack ? 'Black' : 'White'} stone | ${potCount} in pot | Total captures: ${totalCaptures}`}
       >
         {/* Stone preview showing next color */}

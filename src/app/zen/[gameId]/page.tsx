@@ -464,8 +464,6 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
         haptic.stonePickedUp();
       } else {
         // Direct placement - place stone of next color without picking up first
-        if (game.sharedPotCount <= 0) return;
-
         const nextColor = game.nextStoneColor as 0 | 1;
 
         if (wouldBeSuicide(game.boardState, pos.x, pos.y, nextColor)) {

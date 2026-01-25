@@ -35,9 +35,28 @@ claude --dangerously-skip-permissions --continue
 
 ## Pakita-Mendez
 - Character for Wilde Go (replaces Pacman)
-- Pink, round, blue bow, big eyes, always open mouth
+- Pink, round, big eyes, always open mouth, blonde ponytail
 - Image: `/public/pakita.png`
 - Code: `/src/lib/wilde/pakita.tsx`
+
+### Activation
+- Toggle on/off via the yellow "Pakita-Mendez" button when creating a Wilde Go game
+- When enabled, Pakita randomly appears during gameplay (3-17 minutes)
+
+### Behavior
+- Appears on game edge randomly on the board during the game
+- Moves along grid lines - can go right, left, up, down
+- 70% chance to continue in same direction
+- Wraps around board edges (goes from one side to the other)
+
+### Eating Stones
+- Eats any stone she lands on (any player's color)
+- Returns stone to owner's pot - the eaten stone goes back to that player's bowl
+- No turn restrictions - eating happens independently of whose turn it is
+- Grows bigger as she eats more stones (up to 50% larger)
+
+## DO NOT CHANGE WITHOUT CLEAR APPROVAL
+- **Pakita-Mendez button** on Wilde landing page (`/src/app/wilde/page.tsx`) - the yellow toggle button with Pakita image
 
 ## Known Issues
 - **Disappearing stones**: Caused by polling fetching stale data before server processes move. Fixed with 5s cooldown after actions.

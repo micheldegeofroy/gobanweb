@@ -339,8 +339,6 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
         // Direct placement - place stone of current turn's color without picking up first
         const turnColor = currentTurn;
         const potCount = turnColor === 0 ? game.blackPotCount : game.whitePotCount;
-        if (potCount <= 0) return;
-
         if (wouldBeSuicide(game.boardState, pos.x, pos.y, turnColor)) {
           haptic.invalidMove();
           return;
