@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { WILDE_COLORS } from '@/lib/wilde/colors';
 
-// Calculate default stones per player based on grid and player count
+// Calculate default stones per player based on grid (each player gets all intersections)
 function calculateDefaultStones(width: number, height: number, players: number): number {
-  return Math.floor((width * height) / players);
+  return width * height;
 }
 
 export default function WildeGoHome() {
@@ -22,7 +22,6 @@ export default function WildeGoHome() {
   const [customHues, setCustomHues] = useState<Record<number, number>>({}); // Player index -> hue offset
   const [selectedColorIndex, setSelectedColorIndex] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState('');
 
   // Calculate the default stones value for display
   const defaultStones = calculateDefaultStones(boardWidth, boardHeight, playerCount);
@@ -109,7 +108,6 @@ export default function WildeGoHome() {
 
   const createGame = async () => {
     setIsCreating(true);
-    setError('');
 
     try {
       const res = await fetch('/api/wilde', {
@@ -130,7 +128,6 @@ export default function WildeGoHome() {
       // Navigate to game page with key in URL
       router.push(`/wilde/${data.gameId}?key=${encodeURIComponent(data.privateKey)}`);
     } catch (err) {
-      setError('Failed to create board. Please try again.');
       console.error(err);
     } finally {
       setIsCreating(false);
@@ -325,10 +322,10 @@ export default function WildeGoHome() {
             <div className="mb-6">
               <button
                 onClick={() => setPacmanMode(!pacmanMode)}
-                className={`w-full py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                className={`w-full py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 bg-yellow-400 text-yellow-900 ${
                   pacmanMode
-                    ? 'bg-yellow-400 text-yellow-900 shadow-lg ring-2 ring-yellow-500'
-                    : 'bg-yellow-200 text-yellow-800 hover:bg-yellow-300'
+                    ? 'shadow-lg ring-2 ring-yellow-500'
+                    : 'hover:bg-yellow-500'
                 }`}
               >
                 <img src="/pakita.png" alt="Pakita" className="w-8 h-8" />
@@ -367,13 +364,6 @@ export default function WildeGoHome() {
           </div>
         </div>
 
-        {error && (
-          <div className="max-w-md mx-auto mt-6">
-            <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-center">
-              {error}
-            </div>
-          </div>
-        )}
 
         {/* How it works */}
         <div className="max-w-md mx-auto mt-12 text-center">

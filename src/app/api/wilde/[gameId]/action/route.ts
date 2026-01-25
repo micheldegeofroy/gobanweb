@@ -113,14 +113,6 @@ export async function POST(
           return NextResponse.json({ error: 'Position is occupied' }, { status: 400 });
         }
 
-        // Check pot has stones available
-        const pot = newStonePots[stoneColor];
-        if (pot.potCount <= 0) {
-          const err = await errorResponse(ERROR_IDS.WILDE_NO_STONES_IN_POT, 'No stones of this color in pot', 400);
-          if (err) return err;
-          return NextResponse.json({ error: 'No stones of this color in pot' }, { status: 400 });
-        }
-
         // Check suicide
         if (wouldBeSuicide(newBoardState, toX, toY, stoneColor, width, height)) {
           const err = await errorResponse(ERROR_IDS.WILDE_SUICIDE_NOT_ALLOWED, 'Suicide move not allowed', 400);

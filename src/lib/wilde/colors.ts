@@ -33,14 +33,13 @@ export const WILDE_POT_STYLES: Record<number, { bg: string; stone: string; text:
 };
 
 // Calculate stone distribution for N players on WxH board
+// Each player gets ALL intersections, starting player gets +1
 export function calculateStoneCounts(width: number, height: number, playerCount: number): number[] {
   const totalIntersections = width * height;
-  const basePerPlayer = Math.floor(totalIntersections / playerCount);
-  const remainder = totalIntersections % playerCount;
 
-  // Distribute remainder to first players
+  // All players get total intersections, player 0 (starter) gets +1
   return Array.from({ length: playerCount }, (_, i) =>
-    basePerPlayer + (i < remainder ? 1 : 0)
+    totalIntersections + (i === 0 ? 1 : 0)
   );
 }
 
@@ -51,20 +50,21 @@ export function createEmptyBoard(width: number, height: number): (number | null)
 
 // Initialize stone pots for all players
 // Structure: { potCount: available, captured: opponent stones taken, onBoard: own stones on board }
+// Player 0 (starter) always gets +1
 export function initializeStonePots(width: number, height: number, playerCount: number, stonesPerPlayer?: number | null) {
   if (stonesPerPlayer !== null && stonesPerPlayer !== undefined) {
-    // Use custom stone count for all players
-    return Array.from({ length: playerCount }, () => ({
-      potCount: stonesPerPlayer,
-      captured: 0,  // Opponent stones captured (Japanese scoring)
-      onBoard: 0    // Own stones on board (Chinese scoring)
+    // Use custom stone count, starter gets +1
+    return Array.from({ length: playerCount }, (_, i) => ({
+      potCount: stonesPerPlayer + (i === 0 ? 1 : 0),
+      captured: 0,
+      onBoard: 0
     }));
   }
   // Auto-calculate based on board size
   const counts = calculateStoneCounts(width, height, playerCount);
   return counts.map(count => ({
     potCount: count,
-    captured: 0,  // Opponent stones captured (Japanese scoring)
-    onBoard: 0    // Own stones on board (Chinese scoring)
+    captured: 0,
+    onBoard: 0
   }));
 }

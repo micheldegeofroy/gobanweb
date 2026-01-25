@@ -6,11 +6,10 @@ import { createEmptyBoard } from '@/lib/game/logic';
 import { lt } from 'drizzle-orm';
 import type { MinePosition } from '@/lib/db/schema';
 
-// Standard stone counts based on board size
+// Stone counts: each player gets ALL intersections, Black (starter) gets +1
 function getStoneCount(boardSize: number): { black: number; white: number } {
-  if (boardSize === 9) return { black: 41, white: 40 };
-  if (boardSize === 13) return { black: 85, white: 84 };
-  return { black: 181, white: 180 }; // 19x19
+  const totalIntersections = boardSize * boardSize;
+  return { black: totalIntersections + 1, white: totalIntersections };
 }
 
 // Generate random mine positions (10% of intersections)

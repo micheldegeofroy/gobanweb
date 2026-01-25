@@ -114,10 +114,6 @@ export async function POST(
           3: newGreyPotCount,
         };
 
-        if (potCounts[stoneColor as 0|1|2|3] <= 0) {
-          return NextResponse.json({ error: 'No stones of this color in pot' }, { status: 400 });
-        }
-
         // Check suicide
         if (wouldBeSuicideSquare(newBoardState, toX, toY, stoneColor, boardSize)) {
           const err = await errorResponse(ERROR_IDS.CRAZY_SUICIDE_NOT_ALLOWED, 'Suicide move not allowed', 400);

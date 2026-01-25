@@ -808,13 +808,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       <div className={`container mx-auto px-2 sm:px-4 ${isDesktop ? 'pt-12 sm:pt-16 pb-4 sm:pb-8' : 'flex-1 flex flex-col justify-center'} ${isTablet ? 'pb-[72px]' : ''} ${isMobile ? 'pb-4' : ''}`}>
         {/* Buttons are now rendered inside GoBoard perimeter */}
 
-        {/* Error message */}
-        {error && (
-          <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6 text-center">
-            {error}
-          </div>
-        )}
-
         {/* Game Board with Stone Pots */}
         {isDesktop ? (
           /* Desktop: Pots on left and right, 10px from board edge */

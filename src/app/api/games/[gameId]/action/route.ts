@@ -107,18 +107,6 @@ export async function POST(
           return NextResponse.json({ error: 'Position is occupied' }, { status: 400 });
         }
 
-        // Check pot has stones available
-        if (stoneColor === 0 && newBlackPotCount <= 0) {
-          const err = await errorResponse(ERROR_IDS.NORMAL_NO_BLACK_STONES, 'No black stones in pot', 400);
-          if (err) return err;
-          return NextResponse.json({ error: 'No black stones in pot' }, { status: 400 });
-        }
-        if (stoneColor === 1 && newWhitePotCount <= 0) {
-          const err = await errorResponse(ERROR_IDS.NORMAL_NO_WHITE_STONES, 'No white stones in pot', 400);
-          if (err) return err;
-          return NextResponse.json({ error: 'No white stones in pot' }, { status: 400 });
-        }
-
         // Check if this would be suicide (no liberties and doesn't capture)
         if (wouldBeSuicide(newBoardState, toX, toY, stoneColor as 0 | 1)) {
           const err = await errorResponse(ERROR_IDS.NORMAL_SUICIDE_NOT_ALLOWED, 'Cannot place stone with no liberties unless it captures', 400);

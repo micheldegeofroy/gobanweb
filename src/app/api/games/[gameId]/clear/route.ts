@@ -36,9 +36,10 @@ export async function POST(
     const boardSize = game[0].boardSize;
     const emptyBoard = Array(boardSize).fill(null).map(() => Array(boardSize).fill(null));
 
-    // Calculate initial pot counts based on board size
-    const blackStones = boardSize === 9 ? 41 : boardSize === 13 ? 85 : 181;
-    const whiteStones = boardSize === 9 ? 40 : boardSize === 13 ? 84 : 180;
+    // Calculate initial pot counts: each player gets ALL intersections, Black +1 for starting
+    const totalIntersections = boardSize * boardSize;
+    const blackStones = totalIntersections + 1;
+    const whiteStones = totalIntersections;
 
     // Delete all actions for this game
     await db.delete(actions).where(eq(actions.gameId, gameId));

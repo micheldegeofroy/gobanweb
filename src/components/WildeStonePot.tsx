@@ -84,7 +84,7 @@ export default function WildeStonePot({
 
   // Dimensions based on small prop
   const potSize = small ? 'w-16 h-16' : 'w-24 h-24';
-  const stoneSize = small ? 'w-5 h-5' : 'w-8 h-8';
+  const stoneSize = small ? 'w-6 h-6' : 'w-12 h-12';
   const fontSize = small ? 'text-[10px]' : 'text-xs';
 
   return (

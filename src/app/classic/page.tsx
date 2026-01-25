@@ -12,7 +12,6 @@ export default function Home() {
   const [isCreating, setIsCreating] = useState(false);
   const [boardUrl, setBoardUrl] = useState('');
   const [isJoining, setIsJoining] = useState(false);
-  const [error, setError] = useState('');
   const [gameCount, setGameCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -24,7 +23,6 @@ export default function Home() {
 
   const createGame = async () => {
     setIsCreating(true);
-    setError('');
 
     try {
       const res = await fetch('/api/games', {
@@ -45,7 +43,6 @@ export default function Home() {
       // Navigate to game page with key in URL
       router.push(`/game/${data.gameId}?key=${encodeURIComponent(data.privateKey)}`);
     } catch (err) {
-      setError('Failed to create board. Please try again.');
       console.error(err);
     } finally {
       setIsCreating(false);
@@ -54,12 +51,10 @@ export default function Home() {
 
   const joinGame = async () => {
     if (!boardUrl.trim()) {
-      setError('Please paste a board URL');
       return;
     }
 
     setIsJoining(true);
-    setError('');
 
     try {
       // Parse the URL to extract game ID and key
@@ -69,7 +64,6 @@ export default function Home() {
       const key = url.searchParams.get('key');
 
       if (!gameId) {
-        setError('Invalid board URL');
         setIsJoining(false);
         return;
       }
@@ -82,7 +76,6 @@ export default function Home() {
         router.push(`/game/${gameId}`);
       }
     } catch (err) {
-      setError('Invalid board URL. Please paste the full URL.');
       console.error(err);
     } finally {
       setIsJoining(false);
@@ -156,14 +149,6 @@ export default function Home() {
             Free Tutorial
           </button>
         </div>
-
-        {error && (
-          <div className="max-w-md mx-auto mt-4">
-            <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-lg text-center">
-              {error}
-            </div>
-          </div>
-        )}
 
         {/* Back to Menu */}
         <div className="max-w-md mx-auto mt-8 text-center">

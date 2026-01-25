@@ -940,12 +940,6 @@ export default function CrazyGamePage({ params }: { params: Promise<{ gameId: st
       <div className={isDesktop ? 'container mx-auto px-2 sm:px-4 pt-12 sm:pt-16 pb-4 sm:pb-8' : 'flex-1 flex flex-col justify-center px-2'}>
         {/* Buttons are now rendered inside CrazyGoBoard perimeter */}
 
-        {error && (
-          <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6 text-center">
-            {error}
-          </div>
-        )}
-
         {/* Game Board with 4 Stone Pots - layout stays the same during replay */}
         {isDesktop ? (
           /* Desktop: 2 pots on each side */

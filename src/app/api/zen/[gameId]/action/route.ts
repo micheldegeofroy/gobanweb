@@ -97,11 +97,6 @@ export async function POST(
           return NextResponse.json({ error: 'Position is occupied' }, { status: 400 });
         }
 
-        // Check pot has stones
-        if (newSharedPotCount <= 0) {
-          return NextResponse.json({ error: 'No stones in pot' }, { status: 400 });
-        }
-
         // Check suicide
         if (wouldBeSuicideSquare(newBoardState, toX, toY, stoneColor, boardSize)) {
           const err = await errorResponse(ERROR_IDS.ZEN_SUICIDE_NOT_ALLOWED, 'Suicide move not allowed', 400);

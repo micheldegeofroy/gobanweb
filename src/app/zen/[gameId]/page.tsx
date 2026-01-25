@@ -870,12 +870,6 @@ export default function ZenGamePage({ params }: { params: Promise<{ gameId: stri
   return (
     <div className={isDesktop ? 'min-h-screen bg-gradient-to-br from-zinc-900 to-zinc-800' : 'bg-zinc-900 h-dvh flex flex-col'}>
       <div className={isDesktop ? 'container mx-auto px-2 sm:px-4 pt-12 sm:pt-16 pb-4 sm:pb-8' : 'flex-1 flex flex-col justify-center px-2'}>
-        {error && (
-          <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg mb-6 text-center">
-            {error}
-          </div>
-        )}
-
         {/* Game Board with Shared Pot */}
         {isDesktop ? (
           /* Desktop: Pot on the right side */

@@ -743,13 +743,6 @@ export default function DomGamePage({ params }: { params: Promise<{ gameId: stri
     <div className={`${isDesktop ? 'min-h-screen' : 'h-dvh flex flex-col'}`} style={{ backgroundColor: airbnbRed }}>
       <div className={`container mx-auto px-2 sm:px-4 ${isDesktop ? 'pt-12 sm:pt-16 pb-4 sm:pb-8' : 'flex-1 flex flex-col justify-center'} ${isTablet ? 'pb-[72px]' : ''} ${isMobile ? 'pb-4' : ''}`}>
 
-        {/* Error message - Airbnb style */}
-        {error && (
-          <div className="bg-white/90 px-4 py-3 rounded-lg mb-6 text-center" style={{ color: airbnbDark }}>
-            {error}
-          </div>
-        )}
-
         {/* Game Board with Stone Pots */}
         {isDesktop ? (
           <div className="relative flex items-center justify-center">

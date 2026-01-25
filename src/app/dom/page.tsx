@@ -7,7 +7,6 @@ export default function DomGoHome() {
   const router = useRouter();
   const [boardSize, setBoardSize] = useState<9 | 13 | 19>(13);
   const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState('');
 
   // Airbnb colors
   const airbnbRed = '#FF5A5F';
@@ -15,7 +14,6 @@ export default function DomGoHome() {
 
   const createGame = async () => {
     setIsCreating(true);
-    setError('');
 
     try {
       const res = await fetch('/api/games', {
@@ -36,7 +34,6 @@ export default function DomGoHome() {
       // Navigate to Dom game page with key in URL
       router.push(`/dom/${data.gameId}?key=${encodeURIComponent(data.privateKey)}`);
     } catch (err) {
-      setError('Failed to create board. Please try again.');
       console.error(err);
     } finally {
       setIsCreating(false);
@@ -112,14 +109,6 @@ export default function DomGoHome() {
             </button>
           </div>
         </div>
-
-        {error && (
-          <div className="max-w-md mx-auto mt-6">
-            <div className="bg-white px-4 py-3 rounded-lg text-center" style={{ color: airbnbDark }}>
-              {error}
-            </div>
-          </div>
-        )}
 
         {/* How it works - Airbnb style */}
         <div className="max-w-md mx-auto mt-16 text-center">

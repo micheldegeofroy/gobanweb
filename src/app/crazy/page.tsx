@@ -7,11 +7,9 @@ export default function CrazyGoHome() {
   const router = useRouter();
   const [boardSize, setBoardSize] = useState<9 | 13 | 19>(13);
   const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState('');
 
   const createGame = async () => {
     setIsCreating(true);
-    setError('');
 
     try {
       const res = await fetch('/api/crazy', {
@@ -32,7 +30,6 @@ export default function CrazyGoHome() {
       // Navigate to game page with key in URL
       router.push(`/crazy/${data.gameId}?key=${encodeURIComponent(data.privateKey)}`);
     } catch (err) {
-      setError('Failed to create board. Please try again.');
       console.error(err);
     } finally {
       setIsCreating(false);
@@ -107,14 +104,6 @@ export default function CrazyGoHome() {
             </button>
           </div>
         </div>
-
-        {error && (
-          <div className="max-w-2xl mx-auto mt-6">
-            <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-center">
-              {error}
-            </div>
-          </div>
-        )}
 
         {/* How it works */}
         <div className="max-w-md mx-auto mt-16 text-center">

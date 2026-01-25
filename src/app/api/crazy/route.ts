@@ -5,12 +5,15 @@ import { generateKeyPair, generateGameId } from '@/lib/crypto/keys';
 import { createEmptyBoard } from '@/lib/game/logic';
 import { lt } from 'drizzle-orm';
 
-// Stone counts for 4 players based on board size
-// Black (Player 1) gets the extra stone
+// Stone counts for 4 players: each gets ALL intersections, Black (starter) gets +1
 function getCrazyStoneCount(boardSize: number): { black: number; white: number; brown: number; grey: number } {
-  if (boardSize === 9) return { black: 21, white: 20, brown: 20, grey: 20 };   // 81 total
-  if (boardSize === 13) return { black: 43, white: 42, brown: 42, grey: 42 }; // 169 total
-  return { black: 91, white: 90, brown: 90, grey: 90 }; // 19x19 - 361 total
+  const totalIntersections = boardSize * boardSize;
+  return {
+    black: totalIntersections + 1,  // Black starts, gets +1
+    white: totalIntersections,
+    brown: totalIntersections,
+    grey: totalIntersections
+  };
 }
 
 // POST /api/crazy - Create a new 4-player crazy board

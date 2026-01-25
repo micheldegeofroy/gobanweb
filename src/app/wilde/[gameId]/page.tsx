@@ -1123,12 +1123,6 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
   return (
     <div className={isDesktop ? 'min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-purple-900 dark:via-pink-900 dark:to-blue-900' : 'bg-black h-dvh flex flex-col'}>
       <div className={isDesktop ? 'container mx-auto px-2 sm:px-4 pt-12 sm:pt-16 pb-4 sm:pb-8' : 'flex-1 flex flex-col justify-center px-2'}>
-        {error && (
-          <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6 text-center">
-            {error}
-          </div>
-        )}
-
         {/* Game Board with Stone Pots - pots stay visible during replay */}
         {isDesktop ? (
           <div className="relative flex items-center justify-center">
