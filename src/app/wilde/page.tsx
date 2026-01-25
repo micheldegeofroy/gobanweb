@@ -18,7 +18,7 @@ export default function WildeGoHome() {
     calculateDefaultStones(13, 13, 4)
   );
   const [hasManualOverride, setHasManualOverride] = useState(false);
-  const [pacmanMode, setPacmanMode] = useState(false);
+  const [pakitaMode, setPakitaMode] = useState(false);
   const [customHues, setCustomHues] = useState<Record<number, number>>({}); // Player index -> hue offset
   const [selectedColorIndex, setSelectedColorIndex] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -113,7 +113,7 @@ export default function WildeGoHome() {
       const res = await fetch('/api/wilde', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boardWidth, boardHeight, playerCount, stonesPerPlayer, pacmanMode, customHues }),
+        body: JSON.stringify({ boardWidth, boardHeight, playerCount, stonesPerPlayer, pakitaMode, customHues }),
       });
 
       if (!res.ok) {
@@ -321,9 +321,9 @@ export default function WildeGoHome() {
             {/* Pakita Mode Toggle */}
             <div className="mb-6">
               <button
-                onClick={() => setPacmanMode(!pacmanMode)}
+                onClick={() => setPakitaMode(!pakitaMode)}
                 className={`w-full py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 bg-yellow-400 text-yellow-900 ${
-                  pacmanMode
+                  pakitaMode
                     ? 'shadow-lg ring-2 ring-yellow-500'
                     : 'hover:bg-yellow-500'
                 }`}
@@ -331,7 +331,7 @@ export default function WildeGoHome() {
                 <img src="/pakita.png" alt="Pakita" className="w-8 h-8" />
                 <span>Pakita-Mendez</span>
               </button>
-              {pacmanMode && (
+              {pakitaMode && (
                 <p className="text-xs text-pink-600 dark:text-pink-400 mt-2 text-center">
                   Pakita will randomly appear and eat stones!
                 </p>

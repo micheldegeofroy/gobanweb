@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const boardHeight = body.boardHeight ?? 19;
     const playerCount = body.playerCount ?? 2;
     const stonesPerPlayer = body.stonesPerPlayer ?? null; // null means auto-calculate
-    const pacmanMode = body.pacmanMode ?? false;
+    const pakitaMode = body.pakitaMode ?? false;
     const customHues = body.customHues ?? null;
 
     // Validate board dimensions type
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       playerCount,
       boardState: emptyBoard,
       stonePots,
-      pacmanMode,
+      pakitaMode,
       customHues,
       connectedUsers: 0,
     });
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       boardWidth,
       boardHeight,
       playerCount,
-      pacmanMode,
+      pakitaMode,
     });
   } catch (error) {
     console.error('Error creating Wilde game:', error);

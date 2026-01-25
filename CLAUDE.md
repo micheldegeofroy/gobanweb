@@ -34,7 +34,7 @@ claude --dangerously-skip-permissions --continue
 - `TutorialBoard.tsx` - Tutorial board with animations
 
 ## Pakita-Mendez
-- Character for Wilde Go (replaces Pacman)
+- Character for Wilde Go
 - Pink, round, big eyes, always open mouth, blonde ponytail
 - Image: `/public/pakita.png`
 - Code: `/src/lib/wilde/pakita.tsx`

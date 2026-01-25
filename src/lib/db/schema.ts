@@ -126,7 +126,7 @@ export const wildeGames = pgTable('wilde_games', {
   koPointY: integer('ko_point_y'),
   currentTurn: integer('current_turn').notNull().default(0),
   moveNumber: integer('move_number').notNull().default(0),
-  pacmanMode: boolean('pacman_mode').notNull().default(false), // Pacman chaos mode
+  pakitaMode: boolean('pakita_mode').notNull().default(false), // Pakita chaos mode
   customHues: jsonb('custom_hues').$type<Record<number, number>>(), // Player index -> hue offset
   connectedUsers: integer('connected_users').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -140,7 +140,7 @@ export type NewWildeGame = typeof wildeGames.$inferInsert;
 export const wildeActions = pgTable('wilde_actions', {
   id: text('id').primaryKey(),
   gameId: text('game_id').notNull().references(() => wildeGames.id, { onDelete: 'cascade' }),
-  actionType: text('action_type').notNull(), // 'place', 'remove', 'move', 'pacman_eat'
+  actionType: text('action_type').notNull(), // 'place', 'remove', 'move', 'pakita_eat'
   stoneColor: integer('stone_color'), // 0-7
   fromX: integer('from_x'),
   fromY: integer('from_y'),

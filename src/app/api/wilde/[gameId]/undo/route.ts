@@ -55,8 +55,8 @@ export async function POST(
       .where(eq(wildeActions.gameId, gameId))
       .orderBy(asc(wildeActions.moveNumber));
 
-    // Find the last action that isn't pacman_eat (those are auto-generated)
-    const lastPlayerActionIndex = [...allActions].reverse().findIndex(a => a.actionType !== 'pacman_eat');
+    // Find the last action that isn't pakita_eat (those are auto-generated)
+    const lastPlayerActionIndex = [...allActions].reverse().findIndex(a => a.actionType !== 'pakita_eat');
 
     if (lastPlayerActionIndex === -1 || allActions.length === 0) {
       const err = await errorResponse(ERROR_IDS.WILDE_NO_MOVES_UNDO, 'No moves to undo', 400);
@@ -68,9 +68,9 @@ export async function POST(
     const actualIndex = allActions.length - 1 - lastPlayerActionIndex;
     const lastAction = allActions[actualIndex];
 
-    // Get all actions before the one we're undoing (including any pacman_eat after the last player action)
+    // Get all actions before the one we're undoing (including any pakita_eat after the last player action)
     const actionsToReplay = allActions.slice(0, actualIndex);
-    // Actions to delete: the player action and any pacman_eat actions after it
+    // Actions to delete: the player action and any pakita_eat actions after it
     const actionsToDelete = allActions.slice(actualIndex);
 
     // Replay all actions to reconstruct the board
@@ -228,7 +228,7 @@ export async function POST(
           break;
         }
 
-        case 'pacman_eat': {
+        case 'pakita_eat': {
           const x = action.fromX;
           const y = action.fromY;
           const stoneColor = action.stoneColor;
@@ -237,7 +237,7 @@ export async function POST(
             continue;
           }
 
-          // Pacman eating returns stone to owner's pot (no capture scoring)
+          // Pakita eating returns stone to owner's pot (no capture scoring)
           if (newBoardState[y][x] !== null) {
             const eatenStone = newBoardState[y][x] as number;
             newBoardState[y][x] = null;
@@ -253,7 +253,7 @@ export async function POST(
       moveNumber = action.moveNumber;
     }
 
-    // Delete all actions from the undone action onward (including pacman_eat actions)
+    // Delete all actions from the undone action onward (including pakita_eat actions)
     for (const actionToDelete of actionsToDelete) {
       await db.delete(wildeActions).where(
         and(

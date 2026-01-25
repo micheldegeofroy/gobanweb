@@ -9,15 +9,13 @@ import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 import { StonePot } from '@/lib/db/schema';
 import { createEmptyBoard } from '@/lib/wilde/colors';
 import {
-  Pacman,
-  PacmanType,
   Direction,
-  PacmanPosition,
+  PakitaPosition,
   getNextPosition,
   chooseDirection,
-  playPacmanMusic,
+  playPakitaSound,
   playEatSound,
-} from '@/lib/wilde/pacman';
+} from '@/lib/wilde/pakita';
 
 type WildeStone = number | null;
 type WildeBoard = WildeStone[][];
@@ -35,7 +33,7 @@ interface WildeGameData {
   koPointX: number | null;
   koPointY: number | null;
   currentTurn: number;
-  pacmanMode: boolean;
+  pakitaMode: boolean;
   customHues: Record<number, number> | null;
   connectedUsers: number;
   publicKey: string;
@@ -218,14 +216,14 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
   const [replayPlayerCount, setReplayPlayerCount] = useState(2);
   const replayIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Pacman state
-  const [pacmanActive, setPacmanActive] = useState(false);
-  const [pacmanPosition, setPacmanPosition] = useState<PacmanPosition | null>(null);
-  const [pacmanType, setPacmanType] = useState<PacmanType>('pacman');
-  const pacmanSpawnTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const pacmanMoveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const pacmanPositionRef = useRef<PacmanPosition | null>(null);
-  const pacmanActiveRef = useRef(false);
+  // Pakita state
+  const [pakitaActive, setPakitaActive] = useState(false);
+  const [pakitaPosition, setPakitaPosition] = useState<PakitaPosition | null>(null);
+  const [pakitaStonesEaten, setPakitaStonesEaten] = useState(0);
+  const pakitaSpawnTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pakitaMoveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pakitaPositionRef = useRef<PakitaPosition | null>(null);
+  const pakitaActiveRef = useRef(false);
   const gameRef = useRef<WildeGameData | null>(null);
   const privateKeyRef = useRef<string | null>(null);
   const gameIdRef = useRef<string | null>(null);
@@ -234,12 +232,12 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
 
   // Keep refs in sync with state (single effect for all ref updates)
   useEffect(() => {
-    pacmanPositionRef.current = pacmanPosition;
-    pacmanActiveRef.current = pacmanActive;
+    pakitaPositionRef.current = pakitaPosition;
+    pakitaActiveRef.current = pakitaActive;
     gameRef.current = game;
     privateKeyRef.current = privateKey;
     gameIdRef.current = gameId;
-  }, [pacmanPosition, pacmanActive, game, privateKey, gameId]);
+  }, [pakitaPosition, pakitaActive, game, privateKey, gameId]);
 
   const fetchGame = useCallback(async (gId: string) => {
     try {
@@ -777,15 +775,13 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
     };
   }, [isPlaying, replayIndex, replayActions.length, stepForward]);
 
-  // Pacman spawn function - uses refs to avoid recreating on every game poll
-  const spawnPacman = useCallback(() => {
+  // Pakita spawn function - uses refs to avoid recreating on every game poll
+  const spawnPakita = useCallback(() => {
     const currentGame = gameRef.current;
     if (!currentGame) return;
 
-    // Choose random Pacman, Ms. Pacman, or Baby Pacman
-    const rand = Math.random();
-    const type: PacmanType = rand < 0.33 ? 'pacman' : rand < 0.66 ? 'msPacman' : 'babyPacman';
-    setPacmanType(type);
+    // Reset stones eaten for new spawn
+    setPakitaStonesEaten(0);
 
     // Choose random starting edge and direction
     const edge = Math.floor(Math.random() * 4);
@@ -815,43 +811,43 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
         break;
     }
 
-    setPacmanPosition({ x: startX, y: startY, direction });
-    setPacmanActive(true);
-    playPacmanMusic();
+    setPakitaPosition({ x: startX, y: startY, direction });
+    setPakitaActive(true);
+    playPakitaSound();
   }, []);
 
-  // Pacman spawn timer - schedules spawns when pacmanMode is enabled and no pacman is active
+  // Pakita spawn timer - schedules spawns when pakitaMode is enabled and no pakita is active
   useEffect(() => {
-    if (!game?.pacmanMode || isReplayMode || pacmanActive) return;
+    if (!game?.pakitaMode || isReplayMode || pakitaActive) return;
 
     // Schedule spawn after 10 minutes ± 7 minutes (3-17 minutes)
     // Base: 10 min = 600000ms, variation: ±7 min = ±420000ms
     const baseDelay = 600000; // 10 minutes
     const variation = 420000; // 7 minutes
     const delay = baseDelay + (Math.random() * 2 - 1) * variation; // 180000 to 1020000ms
-    pacmanSpawnTimerRef.current = setTimeout(() => {
+    pakitaSpawnTimerRef.current = setTimeout(() => {
       // Use ref to get current value, not stale closure value
-      if (!pacmanActiveRef.current) {
-        spawnPacman();
+      if (!pakitaActiveRef.current) {
+        spawnPakita();
       }
     }, delay);
 
     return () => {
-      if (pacmanSpawnTimerRef.current) {
-        clearTimeout(pacmanSpawnTimerRef.current);
+      if (pakitaSpawnTimerRef.current) {
+        clearTimeout(pakitaSpawnTimerRef.current);
       }
     };
-  }, [game?.pacmanMode, isReplayMode, pacmanActive, spawnPacman]);
+  }, [game?.pakitaMode, isReplayMode, pakitaActive, spawnPakita]);
 
-  // Pacman movement effect
+  // Pakita movement effect
   useEffect(() => {
-    if (!pacmanActive) return;
+    if (!pakitaActive) return;
 
     let steps = 0;
 
-    const movePacman = async () => {
+    const movePakita = async () => {
       // Get fresh values from refs
-      const currentPos = pacmanPositionRef.current;
+      const currentPos = pakitaPositionRef.current;
       const currentGame = gameRef.current;
       const currentPrivateKey = privateKeyRef.current;
       const currentGameId = gameIdRef.current;
@@ -861,11 +857,12 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
       const maxSteps = Math.max(currentGame.boardWidth, currentGame.boardHeight) * 2;
       steps++;
 
-      // Check if Pacman is at current position and there's a stone
+      // Check if Pakita is at current position and there's a stone
       const currentStone = currentGame.boardState[currentPos.y]?.[currentPos.x];
       if (currentStone !== null && currentStone !== undefined) {
         // Eat the stone! Return it to the owner's pot
         playEatSound();
+        setPakitaStonesEaten(prev => prev + 1);
 
         // Call API to persist the change
         if (currentPrivateKey && currentGameId) {
@@ -875,7 +872,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 privateKey: currentPrivateKey,
-                actionType: 'pacman_eat',
+                actionType: 'pakita_eat',
                 fromX: currentPos.x,
                 fromY: currentPos.y,
               }),
@@ -903,28 +900,28 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
         }
       }
 
-      // Check if Pacman should exit
+      // Check if Pakita should exit
       if (steps >= maxSteps) {
-        setPacmanActive(false);
-        setPacmanPosition(null);
+        setPakitaActive(false);
+        setPakitaPosition(null);
         return;
       }
 
       // Calculate next position and move
       const nextPos = getNextPosition(currentPos, currentGame.boardWidth, currentGame.boardHeight);
       const newDirection = chooseDirection(currentPos.direction, true);
-      setPacmanPosition({ ...nextPos, direction: newDirection });
+      setPakitaPosition({ ...nextPos, direction: newDirection });
     };
 
     // Move every 300ms
-    pacmanMoveTimerRef.current = setInterval(movePacman, 300);
+    pakitaMoveTimerRef.current = setInterval(movePakita, 300);
 
     return () => {
-      if (pacmanMoveTimerRef.current) {
-        clearInterval(pacmanMoveTimerRef.current);
+      if (pakitaMoveTimerRef.current) {
+        clearInterval(pakitaMoveTimerRef.current);
       }
     };
-  }, [pacmanActive]);
+  }, [pakitaActive]);
 
   // Memoized pots - must be before conditional returns to maintain hook order
   const pots = useMemo(() => {
@@ -1136,7 +1133,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
                 lastMove={isReplayMode ? null : (game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null)}
                 onBoardClick={isReplayMode ? () => {} : handleBoardClick}
                 topButtons={topButtons}
-                pacman={pacmanActive && pacmanPosition ? { ...pacmanPosition, type: pacmanType } : null}
+                pakita={pakitaActive && pakitaPosition ? { ...pakitaPosition, stonesEaten: pakitaStonesEaten } : null}
                 customHues={game.customHues}
               />
               {/* Left pots */}
@@ -1161,7 +1158,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
                 lastMove={isReplayMode ? null : (game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null)}
                 onBoardClick={isReplayMode ? () => {} : handleBoardClick}
                 topButtons={topButtons}
-                pacman={pacmanActive && pacmanPosition ? { ...pacmanPosition, type: pacmanType } : null}
+                pakita={pakitaActive && pakitaPosition ? { ...pakitaPosition, stonesEaten: pakitaStonesEaten } : null}
                 customHues={game.customHues}
               />
             </div>
@@ -1182,7 +1179,7 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
                 lastMove={isReplayMode ? null : (game.lastMoveX !== null && game.lastMoveY !== null ? { x: game.lastMoveX, y: game.lastMoveY } : null)}
                 onBoardClick={isReplayMode ? () => {} : handleBoardClick}
                 topButtons={topButtons}
-                pacman={pacmanActive && pacmanPosition ? { ...pacmanPosition, type: pacmanType } : null}
+                pakita={pakitaActive && pakitaPosition ? { ...pakitaPosition, stonesEaten: pakitaStonesEaten } : null}
                 customHues={game.customHues}
               />
             </div>

@@ -13,11 +13,11 @@ export type WildeHeldStone = {
   fromBoard?: Position;
 };
 
-interface PacmanState {
+interface PakitaState {
   x: number;
   y: number;
   direction: Direction;
-  type: PacmanType;
+  stonesEaten?: number;
 }
 
 interface WildeGoBoardProps {
@@ -29,7 +29,7 @@ interface WildeGoBoardProps {
   lastMove: Position | null;
   onBoardClick: (pos: Position) => void;
   topButtons?: React.ReactNode;
-  pacman?: PacmanState | null;
+  pakita?: PakitaState | null;
   customHues?: Record<number, number> | null;
 }
 
@@ -113,7 +113,7 @@ export default function WildeGoBoard({
   lastMove,
   onBoardClick,
   topButtons,
-  pacman,
+  pakita,
   customHues,
 }: WildeGoBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -218,7 +218,7 @@ export default function WildeGoBoard({
     if (isGhost) ctx.globalAlpha = 1;
   }, [customHues]);
 
-  // Get star points for rectangular boards - symmetrical placement
+  // Get star points for rectangular boards - symmetrical placement, never touching
   const getStarPoints = useCallback((w: number, h: number): Position[] => {
     if (w < 7 || h < 7) return [];
 
@@ -228,15 +228,17 @@ export default function WildeGoBoard({
 
     const points: Position[] = [];
 
-    // For odd dimensions, include center. For even, only corners.
-    const xIsOdd = w % 2 === 1;
-    const yIsOdd = h % 2 === 1;
+    // For odd dimensions, include center only if it won't touch edge hoshi (need >= 2 spaces)
+    const xCenter = Math.floor(w / 2);
+    const yCenter = Math.floor(h / 2);
+    const xHasCenter = w % 2 === 1 && (xCenter - xOffset >= 2);
+    const yHasCenter = h % 2 === 1 && (yCenter - yOffset >= 2);
 
-    const xPositions = xIsOdd
-      ? [xOffset, Math.floor(w / 2), w - 1 - xOffset]
+    const xPositions = xHasCenter
+      ? [xOffset, xCenter, w - 1 - xOffset]
       : [xOffset, w - 1 - xOffset];
-    const yPositions = yIsOdd
-      ? [yOffset, Math.floor(h / 2), h - 1 - yOffset]
+    const yPositions = yHasCenter
+      ? [yOffset, yCenter, h - 1 - yOffset]
       : [yOffset, h - 1 - yOffset];
 
     // Only include unique positions
@@ -478,16 +480,16 @@ export default function WildeGoBoard({
     [hoverPos, onBoardClick]
   );
 
-  // Calculate Pacman position in pixels (for overlay)
-  const getPacmanPixelPos = () => {
-    if (!pacman || !canvasRef.current) return null;
+  // Calculate Pakita position in pixels (for overlay)
+  const getPakitaPixelPos = () => {
+    if (!pakita || !canvasRef.current) return null;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const scaleX = rect.width / canvas.width;
     const scaleY = rect.height / canvas.height;
 
-    const canvasX = padding + pacman.x * cellSizeX;
-    const canvasY = padding + pacman.y * cellSizeY;
+    const canvasX = padding + pakita.x * cellSizeX;
+    const canvasY = padding + pakita.y * cellSizeY;
 
     return {
       x: canvasX * scaleX,
@@ -496,7 +498,7 @@ export default function WildeGoBoard({
     };
   };
 
-  const pacmanPixelPos = getPacmanPixelPos();
+  const pakitaPixelPos = getPakitaPixelPos();
 
   return (
     <div ref={containerRef} className="w-full mx-auto" style={{ maxWidth: canvasWidth }}>
@@ -532,14 +534,14 @@ export default function WildeGoBoard({
             {topButtons}
           </div>
         )}
-        {/* Pacman overlay */}
-        {pacman && pacmanPixelPos && (
-          <Pacman
-            type={pacman.type}
-            x={pacmanPixelPos.x}
-            y={pacmanPixelPos.y}
-            direction={pacman.direction}
-            size={pacmanPixelPos.cellSize * 0.9}
+        {/* Pakita overlay */}
+        {pakita && pakitaPixelPos && (
+          <Pakita
+            x={pakitaPixelPos.x}
+            y={pakitaPixelPos.y}
+            direction={pakita.direction}
+            size={pakitaPixelPos.cellSize * 0.9}
+            stonesEaten={pakita.stonesEaten}
           />
         )}
       </div>

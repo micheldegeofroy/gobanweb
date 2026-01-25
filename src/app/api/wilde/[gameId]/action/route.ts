@@ -201,11 +201,11 @@ export async function POST(
         });
       }
 
-      case 'pacman_eat': {
-        // Pacman eats a stone - returns it to owner's pot (no turn restrictions)
-        // Server-side validation: check pacman mode is enabled
-        if (!game[0].pacmanMode) {
-          return NextResponse.json({ error: 'Pacman mode is not enabled' }, { status: 400 });
+      case 'pakita_eat': {
+        // Pakita eats a stone - returns it to owner's pot (no turn restrictions)
+        // Server-side validation: check pakita mode is enabled
+        if (!game[0].pakitaMode) {
+          return NextResponse.json({ error: 'Pakita mode is not enabled' }, { status: 400 });
         }
 
         if (typeof fromX !== 'number' || typeof fromY !== 'number') {
@@ -251,7 +251,7 @@ export async function POST(
         await db.insert(wildeActions).values({
           id: randomUUID(),
           gameId,
-          actionType: 'pacman_eat',
+          actionType: 'pakita_eat',
           stoneColor: eatenStone,
           fromX,
           fromY,
