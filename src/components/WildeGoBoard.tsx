@@ -491,10 +491,17 @@ export default function WildeGoBoard({
     const canvasX = padding + pakita.x * cellSizeX;
     const canvasY = padding + pakita.y * cellSizeY;
 
+    // Stone diameter in screen pixels (canvas gets scaled by CSS, overlay needs screen coords)
+    const scale = Math.min(scaleX, scaleY);
+    const stoneDiameter = cellSize * 0.9 * scale;
+
+    // Debug: if scale is making things too small, use a minimum
+    const actualStoneSize = Math.max(stoneDiameter, 30); // At least 30px
+
     return {
       x: canvasX * scaleX,
       y: canvasY * scaleY,
-      cellSize: cellSize * Math.min(scaleX, scaleY),
+      stoneSize: actualStoneSize,
     };
   };
 
@@ -540,7 +547,7 @@ export default function WildeGoBoard({
             x={pakitaPixelPos.x}
             y={pakitaPixelPos.y}
             direction={pakita.direction}
-            size={pakitaPixelPos.cellSize * 0.9}
+            size={pakitaPixelPos.stoneSize}
             stonesEaten={pakita.stonesEaten}
           />
         )}

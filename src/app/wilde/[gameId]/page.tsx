@@ -295,6 +295,8 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
     const ACTION_COOLDOWN_MS = 5000; // Skip polling for 5s after action
 
     const pollIfReady = () => {
+      // Skip polling if Pakita is active (she's modifying local state)
+      if (pakitaActiveRef.current) return;
       // Skip polling if we recently performed an action (server response is authoritative)
       if (Date.now() - lastActionTime.current < ACTION_COOLDOWN_MS) return;
       fetchGame(gameId);
