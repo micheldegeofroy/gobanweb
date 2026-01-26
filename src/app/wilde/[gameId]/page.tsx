@@ -224,7 +224,10 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
   const pakitaMoveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pakitaPositionRef = useRef<PakitaPosition | null>(null);
   const pakitaActiveRef = useRef(false);
-  const pakitaStepsRef = useRef<number>(0); // Track steps taken to ensure at least 1 turn
+  const pakitaStepsRef = useRef<number>(0); // Track steps taken
+  const pakitaTurnsRef = useRef<number>(0); // Track direction changes (turns)
+  const pakitaLastDirectionRef = useRef<Direction | null>(null); // Track last direction to detect turns
+  const pakitaMaxTurnsRef = useRef<number>(2); // Random 2-5 turns per raid
   // Move-based spawn tracking: spawn after 10-20 moves
   const pakitaLastSpawnMoveRef = useRef<number>(0);
   const pakitaSpawnThresholdRef = useRef<number>(Math.floor(Math.random() * 11) + 10); // 10-20
@@ -789,9 +792,12 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
     const currentGame = gameRef.current;
     if (!currentGame) return;
 
-    // Reset stones eaten and steps for new spawn
+    // Reset stones eaten, steps, and turns for new spawn
     setPakitaStonesEaten(0);
     pakitaStepsRef.current = 0;
+    pakitaTurnsRef.current = 0;
+    pakitaLastDirectionRef.current = null;
+    pakitaMaxTurnsRef.current = Math.floor(Math.random() * 4) + 2; // Random 2-5 turns per raid
 
     // Reset move tracking: record current move and set new random threshold (10-20 moves)
     pakitaLastSpawnMoveRef.current = currentMoveNumber;
@@ -898,6 +904,19 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
       let nextY = currentPos.y;
       let newDirection = chooseDirection(currentPos.direction, true);
 
+      // Track if this is a turn (direction change)
+      if (pakitaLastDirectionRef.current !== null && newDirection !== pakitaLastDirectionRef.current) {
+        pakitaTurnsRef.current += 1;
+      }
+      pakitaLastDirectionRef.current = newDirection;
+
+      // Check if we've reached max turns - force exit
+      if (pakitaTurnsRef.current >= pakitaMaxTurnsRef.current) {
+        setPakitaActive(false);
+        setPakitaPosition(null);
+        return;
+      }
+
       switch (newDirection) {
         case 'right': nextX = currentPos.x + 1; break;
         case 'left': nextX = currentPos.x - 1; break;
@@ -908,9 +927,17 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
       // Check if Pakita would exit the board
       const wouldExit = nextX < 0 || nextX >= currentGame.boardWidth || nextY < 0 || nextY >= currentGame.boardHeight;
 
-      // Must take at least 1 step before exiting - if would exit but haven't stepped yet, pick a different direction
-      if (wouldExit && pakitaStepsRef.current < 1) {
-        // Try to find a valid direction that doesn't exit
+      // Must make at least 2 turns AND 17 steps (5 seconds) before exiting
+      const minSteps = 17; // 5 seconds at 300ms per step
+      const canExit = pakitaTurnsRef.current >= 2 && pakitaStepsRef.current >= minSteps;
+
+      if (wouldExit && canExit) {
+        // Allowed to exit after making at least 2 turns and 5 seconds
+        setPakitaActive(false);
+        setPakitaPosition(null);
+        return;
+      } else if (wouldExit) {
+        // Not enough turns/steps yet, find a different direction to stay on board
         const directions: Direction[] = ['right', 'left', 'up', 'down'];
         for (const dir of directions) {
           let testX = currentPos.x;
@@ -925,14 +952,14 @@ export default function WildeGamePage({ params }: { params: Promise<{ gameId: st
             nextX = testX;
             nextY = testY;
             newDirection = dir;
+            // Count this forced direction change as a turn
+            if (pakitaLastDirectionRef.current !== dir) {
+              pakitaTurnsRef.current += 1;
+              pakitaLastDirectionRef.current = dir;
+            }
             break;
           }
         }
-      } else if (wouldExit) {
-        // Allowed to exit after taking at least 1 step
-        setPakitaActive(false);
-        setPakitaPosition(null);
-        return;
       }
 
       // Increment step counter and move to next position

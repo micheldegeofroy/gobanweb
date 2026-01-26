@@ -329,7 +329,13 @@ export default function WildeGoHome() {
                 }`}
               >
                 <img src="/pakita.png" alt="Pakita" className="w-8 h-8" />
-                <span>Pakita-Mendez</span>
+                {/* Mini colored stones in front of Pakita's mouth */}
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#EC6B9C' }} />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#4FC3F7' }} />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#7CB342' }} />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#FF8A65' }} />
+                </div>
               </button>
               {pakitaMode && (
                 <p className="text-xs text-pink-600 dark:text-pink-400 mt-2 text-center">

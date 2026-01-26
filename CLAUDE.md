@@ -20,7 +20,7 @@ claude --dangerously-skip-permissions --continue
 
 ## Game Variants
 - **Classic Go** (`/game`) - Traditional 2-player Go
-- **Wilde Go** (`/wilde`) - Multiplayer (2-8 players), colorful, with Pakita-Mendez character
+- **Wilde Go** (`/wilde`) - Multiplayer (2-8 players), colorful, with Pakita character
 - **Zen Go** (`/zen`) - 3-player, grayscale aesthetic, shared pot alternating B/W stones
 - **Dom Go** (`/dom`) - Domino-style Go variant
 - **Crazy Go** (`/crazy`) - Variant with special rules
@@ -33,36 +33,55 @@ claude --dangerously-skip-permissions --continue
 - `StonePot.tsx` - Stone pot UI component
 - `TutorialBoard.tsx` - Tutorial board with animations
 
-## Pakita-Mendez
-- Character for Wilde Go
-- Pink, round, big eyes, always open mouth, blonde ponytail
-- Image: `/public/pakita.png`
-- Code: `/src/lib/wilde/pakita.tsx`
+## Pakita Character (Wilde Go)
+
+### Files
+- **Image**: `/public/pakita.png` - Pink Pacman-like character with blue bow and big eyes
+- **Component**: `/src/lib/wilde/pakita.tsx` - Renders the PNG image with rotation based on direction
+- **Maria (backup)**: `/src/lib/wilde/maria.tsx` - Saved SVG design with blonde ponytail (unused)
 
 ### Activation
-- Toggle on/off via the yellow "Pakita-Mendez" button when creating a Wilde Go game
-- When enabled, Pakita appears after 10-20 moves (random), resets after each appearance
+- Toggle via button on Wilde Go landing page (shows mini colored stones + Pakita image)
+- Spawns after 10-20 moves (random threshold), resets after each appearance
 
-### Behavior
-- Appears on game edge randomly on the board during the game
-- Moves along grid lines - can go right, left, up, down
-- 70% chance to continue in same direction
-- Wraps around board edges (goes from one side to the other)
+### Movement Behavior
+- Enters from random board edge
+- Moves along grid lines (right, left, up, down)
+- 70% chance to continue same direction, 30% chance to turn (not reverse)
+- **Must make 2-5 turns** per eating raid (random)
+- **Must stay at least 5 seconds** (17 steps at 300ms each)
+- Exits when both conditions met AND reaches board edge
 
 ### Eating Stones
 - Eats any stone she lands on (any player's color)
-- Returns stone to owner's pot - the eaten stone goes back to that player's bowl
-- No turn restrictions - eating happens independently of whose turn it is
-- Grows bigger as she eats more stones (up to 50% larger)
+- Returns eaten stone to owner's pot
+- Grows up to 50% bigger as she eats (5% per stone)
+- Plays sound effects on spawn and eat
+
+### Size Calculation
+- Size = actual stone diameter on screen × 1.5
+- Minimum 30px to ensure visibility
+- Stone diameter = `cellSize * 0.9 * scale`
+
+### Polling Protection
+- Polling is disabled while Pakita is active
+- `lastActionTime` updated when Pakita eats to prevent stale data overwrites
+
+## Current Priorities
+1. Pakita character is working well - size, movement, eating all functional
+2. Zen Go implementation plan exists at `~/.claude/plans/imperative-soaring-finch.md`
 
 ## DO NOT CHANGE WITHOUT CLEAR APPROVAL
-- **Pakita-Mendez button** on Wilde landing page (`/src/app/wilde/page.tsx`) - the yellow toggle button with Pakita image
+- **Pakita button** on Wilde landing page - mini stones + Pakita image design
+- **Pakita size** - current 1.5× multiplier with 30px minimum works well
 
-## Known Issues
-- **Disappearing stones**: Caused by polling fetching stale data before server processes move. Fixed with 5s cooldown after actions.
-- **Error toggles**: Admin can toggle errors on/off at `/admin/errors`. When toggled off, errors should not display to users.
+## Known Issues & Solutions
+- **Disappearing stones**: Fixed by disabling polling while Pakita active + 5s cooldown after actions
+- **Pakita too small**: Fixed by calculating actual stone diameter on screen with minimum 30px
+- **Pakita exiting too fast**: Fixed with minimum 2 turns and 5 seconds requirement
 
 ## Database
 - Uses Neon PostgreSQL
 - Schema: `/src/lib/db/schema.ts`
 - Run migrations: `npm run db:push`
+- Key field: `pakita_mode` (boolean) on `wilde_games` table
